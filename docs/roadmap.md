@@ -1,7 +1,6 @@
 # VLM-Guided Hybrid Autonomous Driving Planner — 开发路线
 
 ## Phase 0 — 项目初始化
-
 - [x] 创建 GitHub 仓库
 - [x] 配置 Ubuntu / Python 开发环境
 - [x] 配置 Git 和 SSH
@@ -9,32 +8,59 @@
 
 
 ## Phase 1 — Planning & Control 基线系统
-### 1. VehicleState 通用数据结构
-定义行为决策、轨迹规划、控制器和车辆仿真之间统一使用的数据接口。
+### 1. 通用数据结构
+定义 Planning & Control 各模块之间统一使用的数据接口。
+包括：
+- [x] VehicleState
+- [x] ScenarioState
+- [x] BehaviorType
+- [x] BehaviorCommand
+- [x] TrajectoryPoint
 
-### 2. ScenarioState 场景建模
-用结构化数据描述正常行驶、前车减速、行人横穿等基础驾驶场景。
+### 2. 基础场景建模
+使用 VehicleState 和 ScenarioState 构造可重复运行的基础驾驶测试场景。
+包括：
+- [x] 正常直行
+- [x] 前车减速
+- [x] 行人横穿
 
-### 3. BehaviorCommand 规则行为决策器
-根据确定性规则输出 KEEP_LANE、SLOW_DOWN、STOP 等高层行为，建立行为决策基线。
+### 3. 规则行为决策器
+根据 VehicleState 和 ScenarioState 使用确定性规则生成 BehaviorCommand。
+第一版支持：
+- [x] KEEP_LANE
+- [x] SLOW_DOWN
+- [x] STOP
 
-### 4. TrajectoryPoint 简单参考轨迹生成
-基于车道中心线和高层行为生成简单参考路径及目标速度曲线。
+### 4. 简单参考轨迹生成器
+根据 VehicleState 和 BehaviorCommand，沿直线路径生成由多个 TrajectoryPoint 组成的参考轨迹和目标速度曲线。
 
 ### 5. 运动学自行车模型
-使用前轮转角和纵向加速度作为输入，模拟车辆位置、航向角和速度变化。
+使用前轮转角和纵向加速度作为输入，根据运动学自行车模型更新车辆的位置、航向角和速度。
 
 ### 6. 纵向 PID 控制
-根据目标速度与实际速度误差计算纵向加速度，实现速度跟踪。
+根据目标速度与实际速度误差计算纵向加速度，实现速度闭环跟踪。
 
 ### 7. 横向 MPC 控制
-建立预测模型和优化问题，根据参考轨迹计算前轮转角，实现横向轨迹跟踪。
+根据 VehicleState 和参考轨迹建立预测模型和优化问题，计算前轮转角，实现横向轨迹跟踪。
 
 ### 8. Planning & Control 闭环仿真
-连接参考轨迹、PID、MPC 和车辆模型，建立完整的反馈闭环系统。
+连接：
+Scenario
+→ Behavior Planner
+→ Trajectory Generator
+→ PID / MPC
+→ Vehicle Model
+→ VehicleState Feedback
+形成完整的 Planning & Control 反馈闭环。
 
 ### 9. 基础评价与可视化
-计算并展示横向误差、航向误差、速度误差、控制输入和车辆实际轨迹等指标。
+计算并展示：
+- XY 实际轨迹与参考轨迹
+- 横向误差
+- 航向误差
+- 速度误差
+- 前轮转角
+- 纵向加速度
 
 ## Phase 2 — 传统轨迹规划
 ### 10. Reference Line
@@ -137,10 +163,9 @@
 - [ ] Phase 1 — Planning & Control 基线系统
 
 正在进行：
-- [ ] 1. 通用数据结构
+- [x] 1. 通用数据结构
+- [x] 2. 基础场景建模
+- [x] 3. 规则行为决策器
 
 下一步：
-- 设计 VehicleState
-- 设计 ScenarioState
-- 设计 BehaviorCommand
-- 设计 TrajectoryPoint
+- [ ] 4. 简单参考轨迹生成器
