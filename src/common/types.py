@@ -13,6 +13,14 @@ class VehicleState:
 
 
 @dataclass
+class ControlCommand:
+    """Control input applied to the vehicle."""
+
+    acceleration: float     # m/s^2, positive for acceleration.
+    steering_angle: float   # rad, positive for left steering.
+
+
+@dataclass
 class ScenarioState:
     """Structured information about the driving environment."""
 
