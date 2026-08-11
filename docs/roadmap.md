@@ -87,14 +87,19 @@
 - [x] 验证存在初始航向偏差
 
 ### 8. Planning & Control 闭环仿真
-连接：
-Scenario
-→ Behavior Planner
-→ Trajectory Generator
-→ PID / MPC
-→ Vehicle Model
-→ VehicleState Feedback
-形成完整的 Planning & Control 反馈闭环。
+将参考轨迹、纵向 PID、横向 MPC 和车辆模型连接成完整 Planning & Control 闭环。
+包括：
+- [ ] 根据当前时间获取参考轨迹点
+- [ ] 计算纵向速度误差
+- [ ] 计算横向误差和航向误差
+- [ ] PID 生成加速度指令
+- [ ] MPC 生成转向指令
+- [ ] 合成 ControlCommand
+- [ ] 更新车辆状态
+- [ ] 完整闭环循环
+- [ ] 验证 KEEP_LANE
+- [ ] 验证 SLOW_DOWN
+- [ ] 验证 STOP
 
 ### 9. 基础评价与可视化
 计算并展示：
