@@ -13,8 +13,7 @@ The current baseline supports:
 * Rule-based behavior decisions
 * KEEP_LANE / SLOW_DOWN / STOP scenarios
 * Straight-line reference trajectory generation
-* Longitudinal PID control
-* Reference-acceleration feedforward
+* Longitudinal feedforward + PID feedback control
 * Lateral MPC control
 * Steering-angle and steering-rate constraints
 * OSQP-based quadratic programming

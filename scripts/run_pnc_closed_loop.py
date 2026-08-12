@@ -9,6 +9,7 @@ from src.behavior.rule_based import decide_behavior
 from src.common.types import ControlCommand
 from src.control.lateral_mpc import MPCController
 from src.control.pid import PIDController
+from src.control.longitudinal_controller import LongitudinalController
 from src.planning.trajectory_generator import generate_straight_trajectory
 from src.scenario.basic_scenarios import (
     create_lead_vehicle_slowdown_scenario,
@@ -74,6 +75,13 @@ def run_simulation():
         max_output=MAX_ACCELERATION,
     )
 
+    longitudinal_controller = LongitudinalController(
+        pid=pid,
+        dt=DT,
+        max_acceleration=MAX_ACCELERATION,
+        max_deceleration=MAX_DECELERATION,
+    )
+
     mpc = MPCController(
         horizon=10,
         wheelbase_m=WHEELBASE_M,
@@ -105,34 +113,15 @@ def run_simulation():
         lateral_error = state.y - reference_point.y
         heading_error = state.yaw - reference_point.yaw
 
-        # Reference acceleration feedforward:
-        #
-        #   a_ref = (v_ref[k+1] - v_ref[k]) / dt
         if step < len(trajectory) - 1:
-            next_reference_point = trajectory[step + 1]
-
-            reference_acceleration = (
-                next_reference_point.speed
-                - reference_point.speed
-            ) / DT
+            next_reference_speed = trajectory[step + 1].speed
         else:
-            reference_acceleration = 0.0
+            next_reference_speed = None
 
-        # Feedback correction.
-        feedback_acceleration = pid.update(
-            error=speed_error,
-            dt=DT,
-        )
-
-        # Feedforward + feedback.
-        raw_acceleration = (
-            reference_acceleration
-            + feedback_acceleration
-        )
-
-        acceleration = max(
-            -MAX_DECELERATION,
-            min(raw_acceleration, MAX_ACCELERATION),
+        acceleration = longitudinal_controller.compute_acceleration(
+            current_speed=state.speed,
+            reference_speed=reference_point.speed,
+            next_reference_speed=next_reference_speed,
         )
 
         steering = mpc.compute_steering(
