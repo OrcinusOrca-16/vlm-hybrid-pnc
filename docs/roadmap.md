@@ -103,15 +103,13 @@
 
 ### 9. 基础评价与可视化
 对 Planning & Control 闭环的跟踪性能和控制输出进行定量评价。
-- [ ] 记录完整闭环仿真数据
-- [ ] 绘制参考速度与实际速度
-- [ ] 绘制速度跟踪误差
-- [ ] 绘制横向误差与航向误差
-- [ ] 绘制 acceleration / steering command
-- [ ] 计算速度 tracking MAE / RMS / max error
-- [ ] 计算横向 tracking MAE / RMS / max error
-- [ ] 评价 steering smoothness
-- [ ] 汇总 KEEP_LANE / SLOW_DOWN / STOP 场景结果
+- [x] 记录完整闭环仿真数据
+- [x] 绘制统一 P&C summary
+- [x] 计算速度 MAE / RMSE / max error
+- [x] 计算横向 MAE / RMSE / max error
+- [x] 计算航向 RMSE / max error
+- [x] 评价 steering rate / smoothness
+- [x] 汇总 KEEP_LANE / SLOW_DOWN / STOP 场景结果
 
 ## Phase 2 — 传统轨迹规划
 ### 10. Reference Line
@@ -211,12 +209,7 @@
 
 ## 当前进度
 当前阶段：
-- [ ] Phase 1 — Planning & Control 基线系统
-
-正在进行：
-- [x] 1. 通用数据结构
-- [x] 2. 基础场景建模
-- [x] 3. 规则行为决策器
+- [x] Phase 1 — Planning & Control 基线系统
 
 下一步：
-- [ ] 4. 简单参考轨迹生成器
+- [ ] 10. Reference Line
