@@ -88,27 +88,30 @@
 
 ### 8. Planning & Control 闭环仿真
 将参考轨迹、纵向 PID、横向 MPC 和车辆模型连接成完整 Planning & Control 闭环。
-包括：
-- [ ] 根据当前时间获取参考轨迹点
-- [ ] 计算纵向速度误差
-- [ ] 计算横向误差和航向误差
-- [ ] PID 生成加速度指令
-- [ ] MPC 生成转向指令
-- [ ] 合成 ControlCommand
-- [ ] 更新车辆状态
-- [ ] 完整闭环循环
-- [ ] 验证 KEEP_LANE
-- [ ] 验证 SLOW_DOWN
-- [ ] 验证 STOP
+- [x] 根据当前时间获取参考轨迹点
+- [x] 计算纵向速度误差
+- [x] 计算横向误差和航向误差
+- [x] PID 生成加速度指令
+- [x] MPC 生成转向指令
+- [x] 合成 ControlCommand
+- [x] 更新车辆状态
+- [x] 完整闭环循环
+- [x] 验证 KEEP_LANE
+- [x] 验证 SLOW_DOWN
+- [x] 加入纵向参考加速度 feedforward
+- [x] 验证 STOP
 
 ### 9. 基础评价与可视化
-计算并展示：
-- XY 实际轨迹与参考轨迹
-- 横向误差
-- 航向误差
-- 速度误差
-- 前轮转角
-- 纵向加速度
+对 Planning & Control 闭环的跟踪性能和控制输出进行定量评价。
+- [ ] 记录完整闭环仿真数据
+- [ ] 绘制参考速度与实际速度
+- [ ] 绘制速度跟踪误差
+- [ ] 绘制横向误差与航向误差
+- [ ] 绘制 acceleration / steering command
+- [ ] 计算速度 tracking MAE / RMS / max error
+- [ ] 计算横向 tracking MAE / RMS / max error
+- [ ] 评价 steering smoothness
+- [ ] 汇总 KEEP_LANE / SLOW_DOWN / STOP 场景结果
 
 ## Phase 2 — 传统轨迹规划
 ### 10. Reference Line
