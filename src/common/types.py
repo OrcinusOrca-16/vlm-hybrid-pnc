@@ -1,6 +1,15 @@
 from dataclasses import dataclass
 from enum import Enum
 
+@dataclass
+class ReferencePoint:
+    """A geometric point on the reference line."""
+
+    x: float
+    y: float
+    s: float
+    yaw: float
+    curvature: float
 
 @dataclass
 class VehicleState:

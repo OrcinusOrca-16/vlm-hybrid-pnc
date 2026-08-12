@@ -114,9 +114,31 @@
 ## Phase 2 — 传统轨迹规划
 ### 10. Reference Line
 建立道路参考线，并定义参考线的位置、航向角和曲率等基本信息。
+- [x] 理解 Reference Line 在 Planning 中的作用
+- [x] 定义 ReferencePoint 数据结构
+- [x] 用离散点表示二维参考线
+- [x] 计算累计弧长 s
+- [x] 计算参考线 yaw
+- [x] 计算参考线 curvature
+- [x] 构造完整 Reference Line
+- [x] 实现两个 ReferencePoint 之间的线性插值
+- [x] 实现按 s 查询 ReferencePoint
+- [x] 验证直线 Reference Line
+- [x] 验证曲线 Reference Line
 
 ### 11. Cartesian ↔ Frenet / SL 坐标转换
-实现车辆和障碍物在 XY 坐标系与 Frenet / SL 坐标系之间的转换。
+建立全局 XY 坐标与道路局部 SL 坐标之间的转换。
+- [ ] 理解 XY ↔ SL 转换的几何意义
+- [ ] 定义 FrenetPoint 数据结构
+- [ ] 将 XY 点投影到 Reference Line
+- [ ] 计算纵向坐标 s
+- [ ] 计算有符号横向坐标 l
+- [ ] 实现 XY → SL
+- [ ] 推导 SL → XY
+- [ ] 实现 SL → XY
+- [ ] 验证直线 Reference Line
+- [ ] 验证曲线 Reference Line
+- [ ] 验证 XY → SL → XY 往返一致性
 
 ### 12. 候选轨迹生成
 使用多项式等方法在 Frenet 空间生成多条满足不同横向和纵向目标的候选轨迹。
