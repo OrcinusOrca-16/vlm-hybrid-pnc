@@ -111,6 +111,19 @@
 - [x] 评价 steering rate / smoothness
 - [x] 汇总 KEEP_LANE / SLOW_DOWN / STOP 场景结果
 
+### MPC Baseline Calibration
+得到一套稳定、合理、可重复的 baseline MPC 参数。
+- [x] 记录当前 MPC 参数
+- [x] 建立 baseline evaluation cases
+- [x] 检查 lateral tracking error
+- [x] 检查 heading error
+- [x] 检查 steering smoothness
+- [x] 检查 steering-rate
+- [x] 检查 constraint violation
+- [x] 检查 prediction horizon
+- [x] 检查不同速度下稳定性
+- [ ] 冻结 baseline MPC config
+
 ## Phase 2 — 传统轨迹规划
 ### 10. Reference Line
 建立道路参考线，并定义参考线的位置、航向角和曲率等基本信息。
