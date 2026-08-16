@@ -4,6 +4,14 @@ import matplotlib.pyplot as plt
 
 from src.common.types import VehicleState, ControlCommand
 from src.control.lateral_mpc import MPCController
+from src.control.mpc_config import (
+    MPC_HORIZON,
+    MPC_MAX_STEERING_ANGLE,
+    MPC_MAX_STEERING_RATE,
+    MPC_Q_HEADING,
+    MPC_Q_LATERAL,
+    MPC_R_STEERING,
+)
 from src.vehicle.kinematic_bicycle import update_vehicle_state
 
 
@@ -11,26 +19,18 @@ DT = 0.1
 WHEELBASE_M = 2.7
 SIMULATION_STEPS = 50
 
-MAX_STEERING_ANGLE = 0.5
-MAX_STEERING_RATE = 0.5
-
-MPC_HORIZON = 15
-Q_LATERAL = 10.0
-Q_HEADING = 1.0
-R_STEERING = 1.0
-
 
 def main() -> None:
     controller = MPCController(
         horizon=MPC_HORIZON,
         wheelbase_m=WHEELBASE_M,
         dt=DT,
-        q_lateral=Q_LATERAL,
-        q_heading=Q_HEADING,
-        r_steering=R_STEERING,
-        min_steering_angle=-MAX_STEERING_ANGLE,
-        max_steering_angle=MAX_STEERING_ANGLE,
-        max_steering_rate=MAX_STEERING_RATE,
+        q_lateral=MPC_Q_LATERAL,
+        q_heading=MPC_Q_HEADING,
+        r_steering=MPC_R_STEERING,
+        min_steering_angle=-MPC_MAX_STEERING_ANGLE,
+        max_steering_angle=MPC_MAX_STEERING_ANGLE,
+        max_steering_rate=MPC_MAX_STEERING_RATE,
     )
 
     # Problematic calibration case:
@@ -100,10 +100,10 @@ def main() -> None:
     plt.suptitle(
         "Lateral MPC Inspection\n"
         f"Horizon={MPC_HORIZON}, "
-        f"Qy={Q_LATERAL}, "
-        f"Qyaw={Q_HEADING}, "
-        f"R={R_STEERING}, "
-        f"RateLimit={MAX_STEERING_RATE} rad/s, "
+        f"Qy={MPC_Q_LATERAL}, "
+        f"Qyaw={MPC_Q_HEADING}, "
+        f"R={MPC_R_STEERING}, "
+        f"RateLimit={MPC_MAX_STEERING_RATE} rad/s, "
         f"Speed={state.speed:.1f} m/s",
     )
 
@@ -122,12 +122,12 @@ def main() -> None:
     plt.subplot(3, 1, 3)
     plt.plot(times, steering_angles, label="steering")
     plt.axhline(
-        MAX_STEERING_ANGLE,
+        MPC_MAX_STEERING_ANGLE,
         linestyle="--",
         label="angle limit",
     )
     plt.axhline(
-        -MAX_STEERING_ANGLE,
+        -MPC_MAX_STEERING_ANGLE,
         linestyle="--",
     )
     plt.xlabel("Time [s]")

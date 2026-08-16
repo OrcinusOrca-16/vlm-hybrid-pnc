@@ -2,15 +2,16 @@
 
 from src.common.types import VehicleState, ControlCommand
 from src.control.lateral_mpc import MPCController
+from src.control.mpc_config import (
+    MPC_MAX_STEERING_ANGLE,
+    MPC_MAX_STEERING_RATE,
+)
 from src.vehicle.kinematic_bicycle import update_vehicle_state
 
 
 DT = 0.1
 WHEELBASE_M = 2.7
 SIMULATION_STEPS = 30
-
-MAX_STEERING_ANGLE = 0.5
-MAX_STEERING_RATE = 0.5
 
 # Small tolerance for numerical QP solver error.
 RATE_TOLERANCE = 0.002
@@ -24,15 +25,8 @@ def run_case(
     """Run one lateral MPC closed-loop test case."""
 
     controller = MPCController(
-        horizon=10,
         wheelbase_m=WHEELBASE_M,
         dt=DT,
-        q_lateral=10.0,
-        q_heading=1.0,
-        r_steering=1.0,
-        min_steering_angle=-MAX_STEERING_ANGLE,
-        max_steering_angle=MAX_STEERING_ANGLE,
-        max_steering_rate=MAX_STEERING_RATE,
     )
 
     state = VehicleState(
@@ -73,7 +67,7 @@ def run_case(
 
         previous_steering = steering
 
-    expected_max_change = MAX_STEERING_RATE * DT
+    expected_max_change = MPC_MAX_STEERING_RATE * DT
 
     assert abs(state.y) < 0.01, (
         f"{name}: lateral error did not converge."

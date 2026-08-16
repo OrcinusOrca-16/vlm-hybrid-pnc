@@ -4,21 +4,20 @@ import math
 
 from src.common.types import VehicleState, ControlCommand
 from src.control.lateral_mpc import MPCController
+from src.control.mpc_config import (
+    MPC_HORIZON,
+    MPC_MAX_STEERING_ANGLE,
+    MPC_MAX_STEERING_RATE,
+    MPC_Q_HEADING,
+    MPC_Q_LATERAL,
+    MPC_R_STEERING,
+)
 from src.vehicle.kinematic_bicycle import update_vehicle_state
 
 
 DT = 0.1
 WHEELBASE_M = 2.7
 SIMULATION_STEPS = 50
-
-MAX_STEERING_ANGLE = 0.5
-MAX_STEERING_RATE = 0.5
-
-# Current baseline MPC parameters.
-MPC_HORIZON = 15
-Q_LATERAL = 10.0
-Q_HEADING = 1.0
-R_STEERING = 1.0
 
 # Allow a small numerical tolerance from the QP solver.
 RATE_TOLERANCE = 0.02
@@ -48,12 +47,12 @@ def run_case(
         horizon=MPC_HORIZON,
         wheelbase_m=WHEELBASE_M,
         dt=DT,
-        q_lateral=Q_LATERAL,
-        q_heading=Q_HEADING,
-        r_steering=R_STEERING,
-        min_steering_angle=-MAX_STEERING_ANGLE,
-        max_steering_angle=MAX_STEERING_ANGLE,
-        max_steering_rate=MAX_STEERING_RATE,
+        q_lateral=MPC_Q_LATERAL,
+        q_heading=MPC_Q_HEADING,
+        r_steering=MPC_R_STEERING,
+        min_steering_angle=-MPC_MAX_STEERING_ANGLE,
+        max_steering_angle=MPC_MAX_STEERING_ANGLE,
+        max_steering_rate=MPC_MAX_STEERING_RATE,
     )
 
     state = VehicleState(
@@ -119,11 +118,11 @@ def run_case(
 
     # Hard constraints should never be meaningfully violated.
     assert metrics["max_steering"] <= (
-        MAX_STEERING_ANGLE + 1e-6
+        MPC_MAX_STEERING_ANGLE + 1e-6
     ), f"{name}: steering-angle constraint violated."
 
     assert metrics["max_steering_rate"] <= (
-        MAX_STEERING_RATE + RATE_TOLERANCE
+        MPC_MAX_STEERING_RATE + RATE_TOLERANCE
     ), f"{name}: steering-rate constraint violated."
 
     return metrics
@@ -151,11 +150,11 @@ def print_result(
 def main() -> None:
     print("Baseline MPC configuration:")
     print(f"  horizon       = {MPC_HORIZON}")
-    print(f"  Q lateral     = {Q_LATERAL}")
-    print(f"  Q heading     = {Q_HEADING}")
-    print(f"  R steering    = {R_STEERING}")
-    print(f"  steering lim  = ±{MAX_STEERING_ANGLE} rad")
-    print(f"  rate lim      = ±{MAX_STEERING_RATE} rad/s")
+    print(f"  Q lateral     = {MPC_Q_LATERAL}")
+    print(f"  Q heading     = {MPC_Q_HEADING}")
+    print(f"  R steering    = {MPC_R_STEERING}")
+    print(f"  steering lim  = ±{MPC_MAX_STEERING_ANGLE} rad")
+    print(f"  rate lim      = ±{MPC_MAX_STEERING_RATE} rad/s")
     print()
 
     print(

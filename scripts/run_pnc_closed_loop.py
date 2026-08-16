@@ -83,15 +83,8 @@ def run_simulation():
     )
 
     mpc = MPCController(
-        horizon=10,
         wheelbase_m=WHEELBASE_M,
         dt=DT,
-        q_lateral=10.0,
-        q_heading=1.0,
-        r_steering=1.0,
-        min_steering_angle=-0.5,
-        max_steering_angle=0.5,
-        max_steering_rate=0.5,
     )
 
     state = ego_state

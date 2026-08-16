@@ -2,11 +2,22 @@ import numpy as np
 import osqp
 from scipy import sparse
 
+from src.control.mpc_config import (
+    MPC_DT,
+    MPC_HORIZON,
+    MPC_MAX_STEERING_ANGLE,
+    MPC_MAX_STEERING_RATE,
+    MPC_Q_HEADING,
+    MPC_Q_LATERAL,
+    MPC_R_STEERING,
+    MPC_WHEELBASE_M,
+)
+
 
 def build_discrete_model(
     speed_mps: float,
-    wheelbase_m: float = 2.7,
-    dt: float = 0.1,
+    wheelbase_m: float = MPC_WHEELBASE_M,
+    dt: float = MPC_DT,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Build the discrete linear lateral-error model."""
 
@@ -160,10 +171,10 @@ def build_qp_cost(
 def build_input_constraints(
     horizon: int,
     previous_steering_angle: float = 0.0,
-    min_steering_angle: float = -0.5,
-    max_steering_angle: float = 0.5,
-    max_steering_rate: float = 0.5,
-    dt: float = 0.1,
+    min_steering_angle: float = -MPC_MAX_STEERING_ANGLE,
+    max_steering_angle: float = MPC_MAX_STEERING_ANGLE,
+    max_steering_rate: float = MPC_MAX_STEERING_RATE,
+    dt: float = MPC_DT,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Build steering-angle and steering-rate constraints."""
 
@@ -322,15 +333,15 @@ class MPCController:
 
     def __init__(
         self,
-        horizon: int = 10,
-        wheelbase_m: float = 2.7,
-        dt: float = 0.1,
-        q_lateral: float = 10.0,
-        q_heading: float = 1.0,
-        r_steering: float = 1.0,
-        min_steering_angle: float = -0.5,
-        max_steering_angle: float = 0.5,
-        max_steering_rate: float = 0.5,
+        horizon: int = MPC_HORIZON,
+        wheelbase_m: float = MPC_WHEELBASE_M,
+        dt: float = MPC_DT,
+        q_lateral: float = MPC_Q_LATERAL,
+        q_heading: float = MPC_Q_HEADING,
+        r_steering: float = MPC_R_STEERING,
+        min_steering_angle: float = -MPC_MAX_STEERING_ANGLE,
+        max_steering_angle: float = MPC_MAX_STEERING_ANGLE,
+        max_steering_rate: float = MPC_MAX_STEERING_RATE,
     ):
         if not isinstance(horizon, int) or horizon <= 0:
             raise ValueError("horizon must be a positive integer.")
