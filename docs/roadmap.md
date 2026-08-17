@@ -122,7 +122,7 @@
 - [x] 检查 constraint violation
 - [x] 检查 prediction horizon
 - [x] 检查不同速度下稳定性
-- [ ] 冻结 baseline MPC config
+- [x] 冻结 baseline MPC config
 
 ## Phase 2 — 传统轨迹规划
 ### 10. Reference Line
@@ -141,17 +141,16 @@
 
 ### 11. Cartesian ↔ Frenet / SL 坐标转换
 建立全局 XY 坐标与道路局部 SL 坐标之间的转换。
-- [ ] 理解 XY ↔ SL 转换的几何意义
-- [ ] 定义 FrenetPoint 数据结构
-- [ ] 将 XY 点投影到 Reference Line
-- [ ] 计算纵向坐标 s
-- [ ] 计算有符号横向坐标 l
-- [ ] 实现 XY → SL
-- [ ] 推导 SL → XY
+- [x] 理解 XY ↔ SL 转换的几何意义
+- [x] 定义 FrenetPoint 数据结构
+- [x] 实现单个 segment 的 XY 投影
+- [x] 验证 segment 端点 clamp
+- [x] 遍历整条 Reference Line 找最近 segment
+- [x] 计算纵向坐标 s
+- [x] 计算有符号横向坐标 l
+- [x] 实现 XY → SL
+- [x] 推导 SL → XY
 - [ ] 实现 SL → XY
-- [ ] 验证直线 Reference Line
-- [ ] 验证曲线 Reference Line
-- [ ] 验证 XY → SL → XY 往返一致性
 
 ### 12. 候选轨迹生成
 使用多项式等方法在 Frenet 空间生成多条满足不同横向和纵向目标的候选轨迹。

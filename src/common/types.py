@@ -70,3 +70,11 @@ class TrajectoryPoint:
     yaw: float
     speed: float
     time: float
+
+
+@dataclass
+class FrenetPoint:
+    """A point expressed in the Frenet / SL coordinate frame."""
+
+    s: float
+    l: float
