@@ -213,3 +213,87 @@ def xy_to_sl(
         s=s,
         l=l,
     )
+
+
+def find_segment_by_s(
+    s: float,
+    reference_line: list[ReferencePoint],
+) -> int:
+    """Find the reference-line segment containing Frenet coordinate s."""
+
+    if len(reference_line) < 2:
+        raise ValueError(
+            "Reference line must contain at least two points."
+        )
+
+    if (
+        s < reference_line[0].s
+        or s > reference_line[-1].s
+    ):
+        raise ValueError(
+            "s is outside the reference line range."
+        )
+
+    for i in range(len(reference_line) - 1):
+        if s <= reference_line[i + 1].s:
+            return i
+
+    raise RuntimeError(
+        "Failed to find reference-line segment."
+    )
+
+
+def sl_to_xy(
+    s: float,
+    l: float,
+    reference_line: list[ReferencePoint],
+) -> tuple[float, float]:
+    """Convert one Frenet / SL point to Cartesian coordinates."""
+
+    segment_index = find_segment_by_s(
+        s=s,
+        reference_line=reference_line,
+    )
+
+    point0 = reference_line[segment_index]
+    point1 = reference_line[segment_index + 1]
+
+    delta_s = point1.s - point0.s
+
+    if delta_s <= 0.0:
+        raise ValueError(
+            "Reference-line s values must be strictly increasing."
+        )
+
+    ratio = (
+        (s - point0.s)
+        / delta_s
+    )
+
+    reference_x = (
+        point0.x
+        + ratio * (point1.x - point0.x)
+    )
+
+    reference_y = (
+        point0.y
+        + ratio * (point1.y - point0.y)
+    )
+
+    segment_x = point1.x - point0.x
+    segment_y = point1.y - point0.y
+
+    segment_yaw = math.atan2(
+        segment_y,
+        segment_x,
+    )
+
+    # Left normal:
+    # n = [-sin(yaw), cos(yaw)]
+    normal_x = -math.sin(segment_yaw)
+    normal_y = math.cos(segment_yaw)
+
+    x = reference_x + l * normal_x
+    y = reference_y + l * normal_y
+
+    return x, y

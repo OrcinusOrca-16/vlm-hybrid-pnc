@@ -143,14 +143,15 @@
 建立全局 XY 坐标与道路局部 SL 坐标之间的转换。
 - [x] 理解 XY ↔ SL 转换的几何意义
 - [x] 定义 FrenetPoint 数据结构
-- [x] 实现单个 segment 的 XY 投影
-- [x] 验证 segment 端点 clamp
-- [x] 遍历整条 Reference Line 找最近 segment
+- [x] 将 XY 点投影到 Reference Line
 - [x] 计算纵向坐标 s
 - [x] 计算有符号横向坐标 l
 - [x] 实现 XY → SL
 - [x] 推导 SL → XY
-- [ ] 实现 SL → XY
+- [x] 实现 SL → XY
+- [x] 验证直线 Reference Line
+- [x] 验证曲线 Reference Line
+- [x] 验证 XY → SL → XY 往返一致性
 
 ### 12. 候选轨迹生成
 使用多项式等方法在 Frenet 空间生成多条满足不同横向和纵向目标的候选轨迹。
