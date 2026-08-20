@@ -78,3 +78,20 @@ class FrenetPoint:
 
     s: float
     l: float
+
+
+@dataclass
+class FrenetTrajectoryPoint:
+    """One trajectory point expressed in the Frenet coordinate frame."""
+
+    s: float
+    l: float
+    dl_ds: float
+    d2l_ds2: float
+
+
+@dataclass
+class FrenetTrajectory:
+    """One candidate trajectory represented in Frenet coordinates."""
+
+    points: list[FrenetTrajectoryPoint]
