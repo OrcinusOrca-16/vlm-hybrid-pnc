@@ -218,11 +218,19 @@ $$
 
 ## Direction Change — $P''$
 
-**目的：$P'$ 只表示当前方向；为了计算轨迹弯曲程度，需要继续求方向如何变化，即 $P''$。**
+**目的：$P'$ 表示方向，$P''$ 表示方向如何变化，用于进一步计算 curvature。**
 
 $$
 P''=\frac{d^2P}{ds^2}
 $$
+
+其中：
+
+$$
+\kappa_r'=\frac{d\kappa_r}{ds}
+$$
+
+表示 Reference Line 曲率沿 $s$ 的变化率。
 
 得到：
 
@@ -233,6 +241,46 @@ P''
 (-\kappa_r'l-2\kappa_r l')\mathbf t_r
 +
 [\kappa_r(1-\kappa_r l)+l'']\mathbf n_r
+}
+$$
+
+---
+
+## Curvature — $\kappa$
+
+平面曲线通用曲率公式：
+
+$$
+\boxed{
+\kappa
+=
+\frac{P'\times P''}{\|P'\|^3}
+}
+$$
+
+代入 $P'$ 和 $P''$：
+
+$$
+\boxed{
+\kappa=
+\frac{
+(1-\kappa_r l)[\kappa_r(1-\kappa_r l)+l'']
++
+l'(\kappa_r'l+2\kappa_r l')
+}{
+[(1-\kappa_r l)^2+(l')^2]^{3/2}
+}
+}
+$$
+
+实际实现中，$\kappa_r'$ 由离散 Reference Line 数值差分得到：
+
+$$
+\boxed{
+\kappa'_{r,i}
+\approx
+\frac{\kappa_{r,i+1}-\kappa_{r,i-1}}
+{s_{i+1}-s_{i-1}}
 }
 $$
 
@@ -268,25 +316,37 @@ $$
 
 ## Main Flow
 
-```text
 Frenet Candidate
-s, l, l', l''
-      ↓
-Reference Line 提供
-Pr, ψr, κr
-      ↓
-P
-      ↓
-x, y
-      ↓ 对 s 求导
-P'
-      ↓ atan2
-yaw ψ
-      ↓ 再求导
-P''
-      ↓
-curvature κ
-```
+
+$$
+(s,l,l',l'')
+$$
+
+↓
+
+Reference Line
+
+$$
+(P_r,\psi_r,\kappa_r,\kappa_r')
+$$
+
+↓
+
+$$
+P \rightarrow x,y
+$$
+
+↓
+
+$$
+P' \rightarrow \psi
+$$
+
+↓
+
+$$
+P'' \rightarrow \kappa
+$$
 
 最终：
 
