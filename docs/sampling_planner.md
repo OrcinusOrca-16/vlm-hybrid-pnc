@@ -81,14 +81,12 @@ $$
 并且：
 
 $$
-\frac{d\mathbf t_r}{ds}
-=
+\frac{d\mathbf t_r}{ds} =
 \kappa_r\mathbf n_r
 $$
 
 $$
-\frac{d\mathbf n_r}{ds}
-=
+\frac{d\mathbf n_r}{ds} =
 -\kappa_r\mathbf t_r
 $$
 
@@ -195,8 +193,7 @@ $$
 
 $$
 \boxed{
-\psi
-=
+\psi =
 \psi_r+
 \operatorname{atan2}
 \left(
@@ -236,8 +233,7 @@ $$
 
 $$
 \boxed{
-P''
-=
+P'' =
 (-\kappa_r'l-2\kappa_r l')\mathbf t_r
 +
 [\kappa_r(1-\kappa_r l)+l'']\mathbf n_r
@@ -252,8 +248,7 @@ $$
 
 $$
 \boxed{
-\kappa
-=
+\kappa =
 \frac{P'\times P''}{\|P'\|^3}
 }
 $$
@@ -316,44 +311,30 @@ $$
 
 ## Main Flow
 
+```text
 Frenet Candidate
-
-$$
-(s,l,l',l'')
-$$
-
-↓
-
-Reference Line
-
-$$
-(P_r,\psi_r,\kappa_r,\kappa_r')
-$$
-
-↓
-
-$$
-P \rightarrow x,y
-$$
-
-↓
-
-$$
-P' \rightarrow \psi
-$$
-
-↓
-
-$$
-P'' \rightarrow \kappa
-$$
+s, l, l', l''
+      ↓
+Reference Line 提供
+Pr, ψr, κr, κr'
+      ↓
+P = Pr + l nr
+      ↓
+x, y
+      ↓ 对 s 求导
+P'
+      ↓ atan2
+yaw ψ
+      ↓ 再求导
+P''
+      ↓
+curvature κ
+```
 
 最终：
 
 $$
 \boxed{
-(s,l,l',l'')
-\rightarrow
-(x,y,\psi,\kappa)
+(s,l,l',l'') \rightarrow (x,y,\psi,\kappa)
 }
 $$
