@@ -170,8 +170,7 @@ $$
 
 $$
 \boxed{
-P'
-=
+P' =
 (1-\kappa_r l)\mathbf t_r
 +
 l'\mathbf n_r
