@@ -193,8 +193,8 @@ $$
 $$
 \boxed{
 \psi =
-\psi_r+
-\operatorname{atan2}
+\psi_r +
+\mathrm{atan2}
 \left(
 l',
 1-\kappa_r l
