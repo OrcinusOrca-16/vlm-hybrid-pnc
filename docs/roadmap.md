@@ -126,97 +126,138 @@
 
 ## Phase 2 — 传统轨迹规划
 ### 10. Reference Line
-建立道路参考线，并定义参考线的位置、航向角和曲率等基本信息。
-- [x] 理解 Reference Line 在 Planning 中的作用
+建立统一、平滑的道路参考线，为 Frenet 坐标和 Sampling Planner 提供稳定几何信息。
+已完成离散版本：
 - [x] 定义 ReferencePoint 数据结构
-- [x] 用离散点表示二维参考线
+- [x] 离散二维点表示 Reference Line
 - [x] 计算累计弧长 s
-- [x] 计算参考线 yaw
-- [x] 计算参考线 curvature
-- [x] 构造完整 Reference Line
-- [x] 实现两个 ReferencePoint 之间的线性插值
-- [x] 实现按 s 查询 ReferencePoint
-- [x] 验证直线 Reference Line
-- [x] 验证曲线 Reference Line
+- [x] 计算 yaw
+- [x] 计算 curvature
+- [x] 按 s 查询 / 线性插值
+- [x] 验证直线和圆弧 Reference Line
+升级为成熟实现：
+- [ ] 使用 cubic spline 建立 x(s) / y(s)
+- [ ] 由 spline 导数计算 yaw
+- [ ] 由 spline 导数计算 curvature
+- [ ] 计算 curvature derivative κ'
+- [ ] ReferencePoint 增加 curvature_derivative
+- [ ] 统一 ReferenceLine query(s)
+- [ ] 验证 straight / circular / smooth curved path
 
 ### 11. Cartesian ↔ Frenet / SL 坐标转换
-建立全局 XY 坐标与道路局部 SL 坐标之间的转换。
-- [x] 理解 XY ↔ SL 转换的几何意义
-- [x] 定义 FrenetPoint 数据结构
-- [x] 将 XY 点投影到 Reference Line
-- [x] 计算纵向坐标 s
-- [x] 计算有符号横向坐标 l
-- [x] 实现 XY → SL
-- [x] 推导 SL → XY
-- [x] 实现 SL → XY
-- [x] 验证直线 Reference Line
-- [x] 验证曲线 Reference Line
-- [x] 验证 XY → SL → XY 往返一致性
+建立基于同一 Smooth Reference Line 的 XY ↔ SL 坐标转换。
+已完成基础版本：
+- [x] 理解 XY ↔ SL 几何意义
+- [x] 定义 FrenetPoint
+- [x] 实现 polyline XY → SL
+- [x] 实现 polyline SL → XY
+- [x] 验证 XY → SL → XY
+升级：
+- [ ] XY → SL 改为 spline projection
+- [ ] SL → XY 改为 spline Reference Line
+- [ ] 使用统一 yaw / curvature 几何信息
+- [ ] 验证 curved Reference Line round-trip
 
 ### 12. Sampling-based Planner
-基于 Frenet / Lattice 思路生成多条候选轨迹，
-完成第一个真正具备绕障能力的 Motion Planner。
-- [x] 理解 Sampling / Lattice Planner 的整体流程
-- [x] 定义 Frenet trajectory representation
+基于 Frenet Sampling 生成多条空间 Candidate Path，
+参考 Autoware Path Sampler / Apollo Frenet / Werling 方法。
+#### Frenet Geometry
+- [x] 理解 Frenet trajectory representation
+- [x] 定义 s / l / l' / l''
+- [x] 定义 FrenetTrajectoryPoint / FrenetTrajectory
+- [x] 推导 Candidate position
+- [x] 推导 Candidate yaw
+- [x] 理解 1 - κ_r l
+- [x] 推导 Candidate curvature
+- [x] 理解 κ_r'
+- [ ] 实现 Apollo-style Frenet → Cartesian geometry
+- [ ] 定义 Cartesian PathPoint
+- [ ] 输出 x / y / yaw / curvature / s
 
-- [x] 理解 Frenet trajectory 与单个 FrenetPoint 的区别
-- [x] 定义纵向变量 s
-- [x] 定义横向函数 l(s)
-- [x] 定义 l' / l''
-- [x] 确定候选轨迹需要保存的数据结构
+#### Lateral Sampling
+第一版只做空间 Path Sampling，不进行 longitudinal trajectory optimization。
+- [ ] 定义 target lateral positions
+- [ ] 定义 target path lengths
+- [ ] 定义 sampling resolution
+- [ ] 根据 ego state 计算初始 l / l' / l''
+- [ ] 使用 quintic polynomial 连接 initial / target state
+- [ ] 生成多条 Frenet Candidate Paths
+- [ ] 转换全部 Candidate 到 Cartesian
 
-- [x] 推导 Frenet trajectory → Cartesian trajectory
-- [x] 推导 trajectory position
-- [x] 推导 trajectory yaw
-- [x] 理解 1 - κ_r l 的几何意义
-- [ ] 推导 / 计算 trajectory curvature
-- [ ] 将 Frenet trajectory 转换为 Cartesian trajectory
+#### Hard Constraints
+参考 Autoware hard constraints。
+- [ ] 定义 VehicleParams / ego footprint
+- [ ] 定义 StaticObstacle geometry
+- [ ] curvature limit
+- [ ] vehicle footprint collision checking
+- [ ] minimum obstacle distance
+- [ ] drivable-area / road-boundary checking
+- [ ] 剔除 infeasible Candidates
 
-- [ ] 定义 lateral sampling space
-- [ ] 定义目标横向位置 l_target
-- [ ] 定义 longitudinal sampling range
-- [ ] 确定 planning horizon
-- [ ] 确定 sampling resolution
-
-- [ ] 使用多项式生成 lateral candidate
-- [ ] 生成多条 Frenet candidate trajectories
-- [ ] 将全部候选轨迹转换到 Cartesian
-
-- [ ] 检查 road boundary
-- [ ] 检查最大 curvature
-- [ ] 检查基本运动学可行性
-- [ ] 剔除 infeasible trajectories
-
-- [ ] 定义静态 obstacle representation
-- [ ] 实现 candidate trajectory collision checking
-- [ ] 计算 minimum obstacle clearance
-
-- [ ] 定义 trajectory cost
-- [ ] lateral target cost
-- [ ] smoothness cost
+#### Soft Cost
+第一版固定使用：
+- [ ] lateral deviation cost
 - [ ] curvature cost
-- [ ] obstacle / clearance cost
-- [ ] trajectory length / progress cost
-- [ ] 选择 minimum-cost trajectory
+- [ ] path length / progress cost
+- [ ] weighted total cost
+- [ ] 选择 minimum-cost Candidate
 
-- [ ] 验证 straight nominal driving
-- [ ] 验证 curved reference line
-- [ ] 验证 static obstacle avoidance
-- [ ] 验证 lateral maneuver
-- [ ] 可视化全部 candidate 与 best trajectory
-- [ ] 建立 Sampling Planner 基础评价指标
+#### Validation & Benchmark
+- [ ] straight nominal driving
+- [ ] curved Reference Line
+- [ ] lateral maneuver
+- [ ] static obstacle avoidance
+- [ ] 可视化全部 Candidates 和 Best Path
+- [ ] planning computation time
+- [ ] minimum obstacle clearance
+- [ ] maximum curvature
+- [ ] path length
+- [ ] planning success rate
 
-### 13. Optimization-based Planner
-使用 QP / 数值优化直接求解平滑轨迹，与 Sampling Planner 形成两种不同 Planning 方法。
+### 13. Optimization-based Path Planner
+使用 Frenet corridor + QP 优化生成平滑 Path，
+与 Sampling Planner 形成明确算法对照。
+固定方向：
+- [ ] 建立 lateral corridor / bounds
+- [ ] 定义 l / l' / l'' / l''' cost
+- [ ] 构造 QP
+- [ ] 使用 OSQP 求解
+- [ ] 输出统一 PathPoint
+- [ ] 验证 nominal / curve / obstacle scenarios
 
 ### 14. Sampling vs Optimization Planner Benchmark
-在相同 Reference Line、场景、车辆模型和冻结的 Baseline MPC 下比较两种规划器的轨迹质量、成功率、计算时间和下游控制表现。
+在完全相同条件下比较两种 Path Planner：
+- [ ] 相同 Reference Line
+- [ ] 相同 obstacle
+- [ ] 相同 road boundary
+- [ ] 相同 vehicle geometry
+- [ ] 相同 controller
+- [ ] path quality
+- [ ] curvature / smoothness
+- [ ] obstacle clearance
+- [ ] success rate
+- [ ] computation time
 
-### 15. MPC Systematic Tuning
-在 Planner Benchmark 建立之后系统搜索 horizon、Q、R 等参数，并比较 Baseline MPC 与 Tuned MPC。
+### 15. Curvature-aware MPC + Systematic Tuning
+Phase 1 MPC 保留为冻结 Baseline。
+增加曲率前馈：
+- [ ] 从 planned path 获取 reference curvature
+- [ ] 加入 steering curvature feedforward
+- [ ] 保留 MPC feedback correction
+- [ ] 验证 curved-path tracking
+- [ ] 再系统搜索 horizon / Q / R
+- [ ] 比较 Baseline MPC 与 Tuned MPC
 
 ### 16. Final Planning & Control Benchmark
-使用 Tuned MPC 重新运行两种 Planner，分析 trajectory quality 如何影响 tracking、steering 和整体 P&C 性能。
+使用统一 Tuned MPC 重新运行：
+- [ ] Sampling Planner
+- [ ] Optimization Planner
+- [ ] tracking error
+- [ ] heading error
+- [ ] steering / steering rate
+- [ ] trajectory quality
+- [ ] planning computation time
+- [ ] failure cases
 
 ## Phase 3 — C++ Core Engineering
 将数据结构、Reference Line、Frenet、车辆模型、MPC 以及两种核心 Planner 迁移到 C++，并验证 Python / C++ 数值一致性。
