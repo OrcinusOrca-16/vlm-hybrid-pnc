@@ -3,11 +3,6 @@
 import math
 
 from src.planning.reference_line import (
-    build_reference_line,
-    get_reference_point_by_s,
-)
-
-from src.planning.reference_line import (
     ReferenceLine,
     build_reference_line,
     get_reference_point_by_s,
