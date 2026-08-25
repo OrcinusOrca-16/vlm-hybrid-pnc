@@ -136,13 +136,13 @@
 - [x] 按 s 查询 / 线性插值
 - [x] 验证直线和圆弧 Reference Line
 升级为成熟实现：
-- [ ] 使用 cubic spline 建立 x(s) / y(s)
-- [ ] 由 spline 导数计算 yaw
-- [ ] 由 spline 导数计算 curvature
-- [ ] 计算 curvature derivative κ'
-- [ ] ReferencePoint 增加 curvature_derivative
-- [ ] 统一 ReferenceLine query(s)
-- [ ] 验证 straight / circular / smooth curved path
+- [x] 使用 cubic spline 建立 x(s) / y(s)
+- [x] 由 spline 导数计算 yaw
+- [x] 由 spline 导数计算 curvature
+- [x] 计算 curvature derivative κ'
+- [x] ReferencePoint 增加 curvature_derivative
+- [x] 统一 ReferenceLine query(s)
+- [x] 验证 straight / circular / smooth curved path
 
 ### 11. Cartesian ↔ Frenet / SL 坐标转换
 建立基于同一 Smooth Reference Line 的 XY ↔ SL 坐标转换。

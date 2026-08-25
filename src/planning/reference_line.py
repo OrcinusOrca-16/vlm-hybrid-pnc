@@ -1,5 +1,6 @@
 import math
 from src.common.types import ReferencePoint
+from scipy.interpolate import CubicSpline
 
 def compute_cumulative_s(
     points: list[tuple[float, float]],
@@ -231,3 +232,117 @@ def get_reference_point_by_s(
     raise RuntimeError(
         "Failed to find reference point."
     )
+
+
+class ReferenceLine:
+    """Smooth reference line represented by cubic splines."""
+
+    def __init__(
+        self,
+        points: list[tuple[float, float]],
+    ) -> None:
+        self._s = compute_cumulative_s(points)
+
+        x_values = [point[0] for point in points]
+        y_values = [point[1] for point in points]
+
+        self._x_spline = CubicSpline(
+            self._s,
+            x_values,
+        )
+        self._y_spline = CubicSpline(
+            self._s,
+            y_values,
+        )
+
+    @property
+    def length(self) -> float:
+        return self._s[-1]
+
+    def position(
+        self,
+        s_query: float,
+    ) -> tuple[float, float]:
+        if not 0.0 <= s_query <= self.length:
+            raise ValueError(
+                "s_query is outside the reference line range."
+            )
+
+        x = float(self._x_spline(s_query))
+        y = float(self._y_spline(s_query))
+
+        return x, y
+
+    def yaw(self, s_query: float) -> float:
+        if not 0.0 <= s_query <= self.length:
+            raise ValueError(
+                "s_query is outside the reference line range."
+            )
+
+        dx_ds = float(self._x_spline(s_query, 1))
+        dy_ds = float(self._y_spline(s_query, 1))
+
+        return math.atan2(dy_ds, dx_ds)
+
+    def curvature(self, s_query: float) -> float:
+        if not 0.0 <= s_query <= self.length:
+            raise ValueError(
+                "s_query is outside the reference line range."
+            )
+
+        dx_ds = float(self._x_spline(s_query, 1))
+        dy_ds = float(self._y_spline(s_query, 1))
+
+        d2x_ds2 = float(self._x_spline(s_query, 2))
+        d2y_ds2 = float(self._y_spline(s_query, 2))
+
+        numerator = (
+            dx_ds * d2y_ds2
+            - dy_ds * d2x_ds2
+        )
+
+        denominator = (
+            dx_ds ** 2
+            + dy_ds ** 2
+        ) ** 1.5
+
+        return numerator / denominator
+
+    def curvature_derivative(
+        self,
+        s_query: float,
+        delta_s: float = 1e-3,
+    ) -> float:
+        if not 0.0 <= s_query <= self.length:
+            raise ValueError(
+                "s_query is outside the reference line range."
+            )
+
+        if s_query - delta_s < 0.0:
+            return (
+                self.curvature(s_query + delta_s)
+                - self.curvature(s_query)
+            ) / delta_s
+
+        if s_query + delta_s > self.length:
+            return (
+                self.curvature(s_query)
+                - self.curvature(s_query - delta_s)
+            ) / delta_s
+
+        return (
+            self.curvature(s_query + delta_s)
+            - self.curvature(s_query - delta_s)
+        ) / (2.0 * delta_s)
+
+    def query(self, s_query: float) -> ReferencePoint:
+        x, y = self.position(s_query)
+
+        return ReferencePoint(
+            x=x,
+            y=y,
+            s=s_query,
+            yaw=self.yaw(s_query),
+            curvature=self.curvature(s_query),
+            curvature_derivative=self.curvature_derivative(s_query),
+        )

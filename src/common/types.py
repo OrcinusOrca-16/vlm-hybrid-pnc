@@ -10,6 +10,7 @@ class ReferencePoint:
     s: float
     yaw: float
     curvature: float
+    curvature_derivative: float = 0.0
 
 @dataclass
 class VehicleState:
