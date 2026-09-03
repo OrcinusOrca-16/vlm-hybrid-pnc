@@ -1,6 +1,12 @@
 import math
-from src.common.types import ReferencePoint
+
 from scipy.interpolate import CubicSpline
+
+from src.common.types import ReferencePoint
+
+
+_PROJECTION_TOLERANCE = 5e-3
+
 
 def compute_cumulative_s(
     points: list[tuple[float, float]],
@@ -60,7 +66,6 @@ def compute_yaws(
         yaw = math.atan2(dy, dx)
         yaws.append(yaw)
 
-    # The last point uses the direction of the last segment.
     yaws.append(yaws[-1])
 
     return yaws
@@ -110,8 +115,6 @@ def compute_curvatures(
 
         curvatures[i] = delta_yaw / delta_s
 
-    # Baseline treatment for endpoints:
-    # use the nearest interior curvature.
     curvatures[0] = curvatures[1]
     curvatures[-1] = curvatures[-2]
 
@@ -241,10 +244,17 @@ class ReferenceLine:
         self,
         points: list[tuple[float, float]],
     ) -> None:
-        self._s = compute_cumulative_s(points)
+        self._points = list(points)
+        self._s = compute_cumulative_s(self._points)
 
-        x_values = [point[0] for point in points]
-        y_values = [point[1] for point in points]
+        x_values = [
+            point[0]
+            for point in self._points
+        ]
+        y_values = [
+            point[1]
+            for point in self._points
+        ]
 
         self._x_spline = CubicSpline(
             self._s,
@@ -346,3 +356,92 @@ class ReferenceLine:
             curvature=self.curvature(s_query),
             curvature_derivative=self.curvature_derivative(s_query),
         )
+
+    def _coarse_projection_interval(
+        self,
+        x: float,
+        y: float,
+    ) -> tuple[float, float]:
+        """Find a local s interval around the nearest raw waypoint."""
+
+        nearest_index = min(
+            range(len(self._points)),
+            key=lambda index: (
+                (x - self._points[index][0]) ** 2
+                + (y - self._points[index][1]) ** 2
+            ),
+        )
+
+        start_index = max(
+            0,
+            nearest_index - 1,
+        )
+        end_index = min(
+            len(self._points) - 1,
+            nearest_index + 1,
+        )
+
+        return (
+            self._s[start_index],
+            self._s[end_index],
+        )
+
+    def _distance_squared(
+        self,
+        s_query: float,
+        x: float,
+        y: float,
+    ) -> float:
+        reference_x, reference_y = self.position(s_query)
+
+        dx = x - reference_x
+        dy = y - reference_y
+
+        return dx ** 2 + dy ** 2
+
+    def nearest_s(
+        self,
+        x: float,
+        y: float,
+    ) -> float:
+        """Find the nearest s using raw-point coarse search and spline refinement."""
+
+        left_s, right_s = self._coarse_projection_interval(
+            x=x,
+            y=y,
+        )
+
+        best_distance = float("inf")
+        best_s = 0.5 * (left_s + right_s)
+
+        # Baseline assumption: the query lies in a locally unique
+        # projection region of the reference line.
+        while right_s - left_s > _PROJECTION_TOLERANCE:
+            first_s = left_s + (right_s - left_s) / 3.0
+            second_s = right_s - (right_s - left_s) / 3.0
+
+            first_distance = self._distance_squared(
+                s_query=first_s,
+                x=x,
+                y=y,
+            )
+            second_distance = self._distance_squared(
+                s_query=second_s,
+                x=x,
+                y=y,
+            )
+
+            if first_distance < best_distance:
+                best_distance = first_distance
+                best_s = first_s
+
+            if second_distance < best_distance:
+                best_distance = second_distance
+                best_s = second_s
+
+            if first_distance < second_distance:
+                right_s = second_s
+            else:
+                left_s = first_s
+
+        return best_s

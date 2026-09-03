@@ -6,10 +6,10 @@ from src.planning.frenet import (
     sl_to_xy,
     xy_to_sl,
 )
-from src.planning.reference_line import build_reference_line
+from src.planning.reference_line import ReferenceLine
 
 
-TOLERANCE = 1e-9
+TOLERANCE = 5e-3
 
 
 def assert_close(
@@ -24,25 +24,36 @@ def assert_close(
 
 
 def validate_straight_line() -> None:
-    """Validate Frenet conversion on a straight reference line."""
+    """Validate spline-based Frenet conversion on a straight line."""
 
-    reference_line = build_reference_line([
+    reference_line = ReferenceLine([
         (0.0, 0.0),
         (10.0, 0.0),
         (20.0, 0.0),
     ])
 
     test_cases = [
-        (14.0, 3.0),
-        (14.0, -3.0),
-        (5.0, 0.0),
+        (14.0, 3.0, 14.0, 3.0),
+        (14.0, -3.0, 14.0, -3.0),
+        (5.0, 0.0, 5.0, 0.0),
     ]
 
-    for x, y in test_cases:
+    for x, y, expected_s, expected_l in test_cases:
         frenet_point = xy_to_sl(
             x=x,
             y=y,
             reference_line=reference_line,
+        )
+
+        assert_close(
+            frenet_point.s,
+            expected_s,
+            "straight s",
+        )
+        assert_close(
+            frenet_point.l,
+            expected_l,
+            "straight l",
         )
 
         recovered_x, recovered_y = sl_to_xy(
@@ -54,20 +65,48 @@ def validate_straight_line() -> None:
         assert_close(
             recovered_x,
             x,
-            "straight x",
+            "straight round-trip x",
         )
-
         assert_close(
             recovered_y,
             y,
-            "straight y",
+            "straight round-trip y",
         )
 
-    print("Straight-line Frenet validation passed.")
+    print("Straight-line spline Frenet validation passed.")
 
 
-def validate_curved_line() -> None:
-    """Validate Frenet conversion on a curved reference line."""
+def validate_endpoint_projection() -> None:
+    """Validate projection when the nearest point is a spline endpoint."""
+
+    reference_line = ReferenceLine([
+        (0.0, 0.0),
+        (5.0, 0.0),
+        (10.0, 0.0),
+    ])
+
+    frenet_point = xy_to_sl(
+        x=-2.0,
+        y=1.5,
+        reference_line=reference_line,
+    )
+
+    assert_close(
+        frenet_point.s,
+        0.0,
+        "endpoint s",
+    )
+    assert_close(
+        frenet_point.l,
+        1.5,
+        "endpoint l",
+    )
+
+    print("Endpoint spline projection validation passed.")
+
+
+def validate_circular_arc() -> None:
+    """Validate spline-based Frenet round-trip on a circular arc."""
 
     radius = 10.0
 
@@ -87,54 +126,91 @@ def validate_curved_line() -> None:
         for angle in angles
     ]
 
-    reference_line = build_reference_line(
-        points
-    )
+    reference_line = ReferenceLine(points)
+    test_s = reference_line.length * 0.42
 
-    test_s = (
-        reference_line[1].s
-        + 0.4
-        * (
-            reference_line[2].s
-            - reference_line[1].s
+    for test_l in (1.0, -1.0):
+        x, y = sl_to_xy(
+            s=test_s,
+            l=test_l,
+            reference_line=reference_line,
         )
-    )
 
-    test_l = 1.0
+        recovered = xy_to_sl(
+            x=x,
+            y=y,
+            reference_line=reference_line,
+        )
 
-    x, y = sl_to_xy(
-        s=test_s,
-        l=test_l,
-        reference_line=reference_line,
-    )
+        assert_close(
+            recovered.s,
+            test_s,
+            "circular round-trip s",
+        )
+        assert_close(
+            recovered.l,
+            test_l,
+            "circular round-trip l",
+        )
 
-    recovered = xy_to_sl(
-        x=x,
-        y=y,
-        reference_line=reference_line,
-    )
+    print("Circular-arc spline Frenet validation passed.")
 
-    assert_close(
-        recovered.s,
-        test_s,
-        "curved s",
-    )
 
-    assert_close(
-        recovered.l,
-        test_l,
-        "curved l",
-    )
+def validate_varying_curvature_path() -> None:
+    """Validate spline Frenet round-trip on a varying-curvature path."""
 
-    print("Curved-line Frenet validation passed.")
+    reference_line = ReferenceLine([
+        (0.0, 0.0),
+        (5.0, 0.5),
+        (10.0, 2.0),
+        (15.0, 3.0),
+        (20.0, 2.0),
+        (25.0, 0.5),
+        (30.0, 0.0),
+    ])
+
+    test_cases = [
+        (0.22, 0.8),
+        (0.48, -1.2),
+        (0.73, 1.5),
+    ]
+
+    for fraction, test_l in test_cases:
+        test_s = reference_line.length * fraction
+        x, y = sl_to_xy(
+            s=test_s,
+            l=test_l,
+            reference_line=reference_line,
+        )
+
+        recovered = xy_to_sl(
+            x=x,
+            y=y,
+            reference_line=reference_line,
+        )
+
+        assert_close(
+            recovered.s,
+            test_s,
+            "varying-curvature round-trip s",
+        )
+        assert_close(
+            recovered.l,
+            test_l,
+            "varying-curvature round-trip l",
+        )
+
+    print("Varying-curvature spline Frenet validation passed.")
 
 
 def main() -> None:
     validate_straight_line()
-    validate_curved_line()
+    validate_endpoint_projection()
+    validate_circular_arc()
+    validate_varying_curvature_path()
 
     print(
-        "\nAll Frenet coordinate validation cases passed."
+        "\nAll spline Frenet coordinate validation cases passed."
     )
 
 

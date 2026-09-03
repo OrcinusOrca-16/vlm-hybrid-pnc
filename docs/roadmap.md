@@ -153,10 +153,11 @@
 - [x] 实现 polyline SL → XY
 - [x] 验证 XY → SL → XY
 升级：
-- [ ] XY → SL 改为 spline projection
-- [ ] SL → XY 改为 spline Reference Line
-- [ ] 使用统一 yaw / curvature 几何信息
-- [ ] 验证 curved Reference Line round-trip
+- [x] 保存 raw waypoints，用于 coarse localization
+- [x] XY → SL 改为 raw-waypoint coarse localization + spline ternary-search projection
+- [x] SL → XY 改为 spline Reference Line
+- [x] 使用统一 smooth ReferenceLine position / yaw 几何信息
+- [x] 验证 straight / endpoint / circular / varying-curvature round-trip
 
 ### 12. Sampling-based Planner
 基于 Frenet Sampling 生成多条空间 Candidate Path，
