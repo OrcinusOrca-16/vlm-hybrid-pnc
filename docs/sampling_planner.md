@@ -41,19 +41,19 @@ $$
 其中：
 
 $$
-P_r=\begin{bmatrix}x_r\\y_r\end{bmatrix}
+P_r=(x_r,y_r)^T
 $$
 
 单位切向量：
 
 $$
-\mathbf{t}_r=\begin{bmatrix}\cos\psi_r\\\sin\psi_r\end{bmatrix}
+\mathbf{t}_r=(\cos\psi_r,\sin\psi_r)^T
 $$
 
 单位左法向量：
 
 $$
-\mathbf{n}_r=\begin{bmatrix}-\sin\psi_r\\\cos\psi_r\end{bmatrix}
+\mathbf{n}_r=(-\sin\psi_r,\cos\psi_r)^T
 $$
 
 并且：
@@ -141,13 +141,13 @@ $$
 在 Reference Line 局部坐标系中：
 
 $$
-P'\Longleftrightarrow\begin{bmatrix}1-\kappa_r l\\l'\end{bmatrix}
+P'\Longleftrightarrow(1-\kappa_r l,l')^T
 $$
 
 因此：
 
 $$
-\boxed{\psi=\psi_r+\operatorname{atan2}(l',1-\kappa_r l)}
+\boxed{\psi=\psi_r+\mathrm{atan2}(l',1-\kappa_r l)}
 $$
 
 其中 $1-\kappa_r l$ 表示弯道内 / 外侧造成的切向尺度变化。
@@ -179,7 +179,7 @@ $$
 平面曲线通用公式：
 
 $$
-\boxed{\kappa=\frac{P'\times P''}{\|P'\|^3}}
+\boxed{\kappa=\frac{P'\times P''}{\lVert P'\rVert^3}}
 $$
 
 代入 Frenet 几何：
@@ -191,7 +191,7 @@ $$
 分母对应：
 
 $$
-\|P'\|^2=(1-\kappa_r l)^2+(l')^2
+\lVert P'\rVert^2=(1-\kappa_r l)^2+(l')^2
 $$
 
 当它接近 $0$ 时 Frenet 几何退化，实际实现需要分母保护。
@@ -236,13 +236,13 @@ $$
 单位切向量：
 
 $$
-\mathbf{t}_r=\begin{bmatrix}\cos\psi_r\\\sin\psi_r\end{bmatrix}
+\mathbf{t}_r=(\cos\psi_r,\sin\psi_r)^T
 $$
 
 对 $s$ 求导：
 
 $$
-\frac{d\mathbf{t}_r}{ds}=\begin{bmatrix}-\sin\psi_r\frac{d\psi_r}{ds}\\\cos\psi_r\frac{d\psi_r}{ds}\end{bmatrix}
+\frac{d\mathbf{t}_r}{ds}=\left(-\sin\psi_r\frac{d\psi_r}{ds},\ \cos\psi_r\frac{d\psi_r}{ds}\right)^T
 $$
 
 弧长参数下：
@@ -254,7 +254,7 @@ $$
 代入：
 
 $$
-\frac{d\mathbf{t}_r}{ds}=\kappa_r\begin{bmatrix}-\sin\psi_r\\\cos\psi_r\end{bmatrix}
+\frac{d\mathbf{t}_r}{ds}=\kappa_r(-\sin\psi_r,\cos\psi_r)^T
 $$
 
 因此：
@@ -266,19 +266,19 @@ $$
 单位左法向量：
 
 $$
-\mathbf{n}_r=\begin{bmatrix}-\sin\psi_r\\\cos\psi_r\end{bmatrix}
+\mathbf{n}_r=(-\sin\psi_r,\cos\psi_r)^T
 $$
 
 对 $s$ 求导：
 
 $$
-\frac{d\mathbf{n}_r}{ds}=\begin{bmatrix}-\cos\psi_r\frac{d\psi_r}{ds}\\-\sin\psi_r\frac{d\psi_r}{ds}\end{bmatrix}
+\frac{d\mathbf{n}_r}{ds}=\left(-\cos\psi_r\frac{d\psi_r}{ds},\ -\sin\psi_r\frac{d\psi_r}{ds}\right)^T
 $$
 
 代入 $d\psi_r/ds=\kappa_r$：
 
 $$
-\frac{d\mathbf{n}_r}{ds}=-\kappa_r\begin{bmatrix}\cos\psi_r\\\sin\psi_r\end{bmatrix}
+\frac{d\mathbf{n}_r}{ds}=-\kappa_r(\cos\psi_r,\sin\psi_r)^T
 $$
 
 因此：
@@ -328,13 +328,13 @@ $$
 Candidate 相对 Reference Line 的方向偏角：
 
 $$
-\Delta\psi=\operatorname{atan2}(l',1-\kappa_r l)
+\Delta\psi=\mathrm{atan2}(l',1-\kappa_r l)
 $$
 
 因此：
 
 $$
-\boxed{\psi=\psi_r+\operatorname{atan2}(l',1-\kappa_r l)}
+\boxed{\psi=\psi_r+\mathrm{atan2}(l',1-\kappa_r l)}
 $$
 
 ### C. $P''$ 推导
@@ -422,19 +422,19 @@ $$
 考虑任意参数 $u$ 的平面曲线：
 
 $$
-P(u)=\begin{bmatrix}x(u)\\y(u)\end{bmatrix}
+P(u)=(x(u),y(u))^T
 $$
 
 定义：
 
 $$
-q=\|P'\|
+q=\lVert P'\rVert
 $$
 
 单位切向量：
 
 $$
-\mathbf{t}=\begin{bmatrix}\cos\psi\\\sin\psi\end{bmatrix}
+\mathbf{t}=(\cos\psi,\sin\psi)^T
 $$
 
 因此：
@@ -515,16 +515,16 @@ $$
 P'\times P''=q^3\kappa
 $$
 
-又因为 $q=\|P'\|$：
+又因为 $q=\lVert P'\rVert$：
 
 $$
-\boxed{\kappa=\frac{P'\times P''}{\|P'\|^3}}
+\boxed{\kappa=\frac{P'\times P''}{\lVert P'\rVert^3}}
 $$
 
 若展开为 XY 分量：
 
 $$
-P'=\begin{bmatrix}x'\\y'\end{bmatrix},\qquad P''=\begin{bmatrix}x''\\y''\end{bmatrix}
+P'=(x',y')^T,\qquad P''=(x'',y'')^T
 $$
 
 二维叉积：
@@ -536,7 +536,7 @@ $$
 模长：
 
 $$
-\|P'\|^3=[(x')^2+(y')^2]^{3/2}
+\lVert P'\rVert^3=[(x')^2+(y')^2]^{3/2}
 $$
 
 因此：
@@ -591,16 +591,16 @@ $$
 P'\times P''=(1-\kappa_r l)[\kappa_r(1-\kappa_r l)+l'']+l'(\kappa_r'l+2\kappa_r l')
 $$
 
-因为 $\mathbf{t}_r$、$\mathbf{n}_r$ 是正交单位向量：
+因为切向量和法向量是正交单位向量：
 
 $$
-\|P'\|^2=A^2+B^2=(1-\kappa_r l)^2+(l')^2
+\lVert P'\rVert^2=A^2+B^2=(1-\kappa_r l)^2+(l')^2
 $$
 
 所以：
 
 $$
-\|P'\|^3=[(1-\kappa_r l)^2+(l')^2]^{3/2}
+\lVert P'\rVert^3=[(1-\kappa_r l)^2+(l')^2]^{3/2}
 $$
 
 最终：
