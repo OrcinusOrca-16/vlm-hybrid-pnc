@@ -160,11 +160,10 @@ $$
 P''=\frac{d^2P}{ds^2}
 $$
 
-其中：
+推导提示：
 
-$$
-\kappa_r'=\frac{d\kappa_r}{ds}
-$$
+- 对 $P'=(1-\kappa_r l)\mathbf{t}_r+l'\mathbf{n}_r$ 再求导，系数和基向量都随 $s$ 变化。
+- 使用 $(\kappa_r l)'=\kappa_r'l+\kappa_r l'$、$\mathbf{t}_r'=\kappa_r\mathbf{n}_r$、$\mathbf{n}_r'=-\kappa_r\mathbf{t}_r$，再合并切向 / 法向项。
 
 得到：
 
