@@ -171,17 +171,17 @@
 - [x] 理解 1 - κ_r l
 - [x] 推导 Candidate curvature
 - [x] 理解 κ_r'
-- [ ] 实现 Apollo-style Frenet → Cartesian geometry
-- [ ] 定义 Cartesian PathPoint
-- [ ] 输出 x / y / yaw / curvature / s
+- [x] 实现 Apollo-style Frenet → Cartesian geometry
+- [x] 定义 Cartesian PathPoint
+- [x] 输出 x / y / yaw / curvature / s
 
 #### Lateral Sampling
 第一版只做空间 Path Sampling，不进行 longitudinal trajectory optimization。
 - [ ] 定义 target lateral positions
 - [ ] 定义 target path lengths
-- [ ] 定义 sampling resolution
+- [x] 定义 sampling resolution
 - [ ] 根据 ego state 计算初始 l / l' / l''
-- [ ] 使用 quintic polynomial 连接 initial / target state
+- [x] 使用 quintic polynomial 连接 initial / target state
 - [ ] 生成多条 Frenet Candidate Paths
 - [ ] 转换全部 Candidate 到 Cartesian
 

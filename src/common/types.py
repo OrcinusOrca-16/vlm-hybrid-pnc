@@ -96,3 +96,13 @@ class FrenetTrajectory:
     """One candidate trajectory represented in Frenet coordinates."""
 
     points: list[FrenetTrajectoryPoint]
+
+@dataclass
+class PathPoint:
+    """One geometric point on a Cartesian spatial path."""
+
+    x: float
+    y: float
+    yaw: float
+    curvature: float
+    s: float
