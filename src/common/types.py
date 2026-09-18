@@ -12,6 +12,7 @@ class ReferencePoint:
     curvature: float
     curvature_derivative: float = 0.0
 
+
 @dataclass
 class VehicleState:
     """State of the ego vehicle in the global Cartesian coordinate frame."""
@@ -20,6 +21,7 @@ class VehicleState:
     y: float
     yaw: float
     speed: float
+    curvature: float = 0.0
 
 
 @dataclass

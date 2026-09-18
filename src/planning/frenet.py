@@ -5,10 +5,12 @@ from src.common.types import (
     FrenetTrajectoryPoint,
     FrenetTrajectory,
     PathPoint,
+    VehicleState,
 )
 from src.planning.reference_line import ReferenceLine
 
 _FRENET_GEOMETRY_EPSILON = 1e-8
+_FRENET_HEADING_EPSILON = 1e-8
 
 def xy_to_sl(
     x: float,
@@ -137,6 +139,83 @@ def frenet_to_cartesian_geometry(
 
     return x, y, yaw, curvature
 
+
+def cartesian_to_frenet_geometry(
+    x: float,
+    y: float,
+    yaw: float,
+    curvature: float,
+    reference_line: ReferenceLine,
+) -> FrenetTrajectoryPoint:
+    """Convert Cartesian path geometry to Frenet path geometry."""
+
+    frenet_point = xy_to_sl(
+        x=x,
+        y=y,
+        reference_line=reference_line,
+    )
+
+    reference_point = reference_line.query(
+        frenet_point.s
+    )
+
+    l = frenet_point.l
+
+    heading_error = (
+        yaw
+        - reference_point.yaw
+    )
+
+    heading_error = math.atan2(
+        math.sin(heading_error),
+        math.cos(heading_error),
+    )
+
+    cos_heading_error = math.cos(
+        heading_error
+    )
+
+    if abs(cos_heading_error) < _FRENET_HEADING_EPSILON:
+        raise ValueError(
+            "Cartesian heading is singular in the Frenet frame."
+        )
+
+    tangent_scale = (
+        1.0
+        - reference_point.curvature * l
+    )
+
+    dl_ds = (
+        tangent_scale
+        * math.tan(heading_error)
+    )
+
+    d2l_ds2 = (
+        -(
+            reference_point.curvature_derivative * l
+            + reference_point.curvature * dl_ds
+        )
+        * math.tan(heading_error)
+        + (
+            tangent_scale
+            / cos_heading_error ** 2
+        )
+        * (
+            curvature
+            * tangent_scale
+            / cos_heading_error
+            - reference_point.curvature
+        )
+    )
+
+    return FrenetTrajectoryPoint(
+        s=frenet_point.s,
+        l=l,
+        dl_ds=dl_ds,
+        d2l_ds2=d2l_ds2,
+    )
+
+
 def frenet_trajectory_to_path(
     trajectory: FrenetTrajectory,
     reference_line: ReferenceLine,
@@ -176,3 +255,33 @@ def frenet_trajectory_to_path(
         )
 
     return path_points
+
+
+def frenet_trajectories_to_paths(
+    trajectories: list[FrenetTrajectory],
+    reference_line: ReferenceLine,
+) -> list[list[PathPoint]]:
+    """Convert multiple Frenet candidate trajectories to Cartesian paths."""
+
+    return [
+        frenet_trajectory_to_path(
+            trajectory=trajectory,
+            reference_line=reference_line,
+        )
+        for trajectory in trajectories
+    ]
+
+
+def vehicle_state_to_frenet(
+    vehicle_state: VehicleState,
+    reference_line: ReferenceLine,
+) -> FrenetTrajectoryPoint:
+    """Convert ego vehicle state to the initial Frenet path state."""
+
+    return cartesian_to_frenet_geometry(
+        x=vehicle_state.x,
+        y=vehicle_state.y,
+        yaw=vehicle_state.yaw,
+        curvature=vehicle_state.curvature,
+        reference_line=reference_line,
+    )

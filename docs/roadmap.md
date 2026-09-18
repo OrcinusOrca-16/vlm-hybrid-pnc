@@ -177,13 +177,13 @@
 
 #### Lateral Sampling
 第一版只做空间 Path Sampling，不进行 longitudinal trajectory optimization。
-- [ ] 定义 target lateral positions
-- [ ] 定义 target path lengths
+- [x] 定义 target lateral positions
+- [x] 定义 target path lengths
 - [x] 定义 sampling resolution
-- [ ] 根据 ego state 计算初始 l / l' / l''
 - [x] 使用 quintic polynomial 连接 initial / target state
-- [ ] 生成多条 Frenet Candidate Paths
-- [ ] 转换全部 Candidate 到 Cartesian
+- [x] 生成多条 Frenet Candidate Paths
+- [x] 转换全部 Candidate 到 Cartesian
+- [x] 根据 ego state 计算初始 l / l' / l''
 
 #### Hard Constraints
 参考 Autoware hard constraints。
