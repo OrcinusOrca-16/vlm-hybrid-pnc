@@ -14,30 +14,13 @@ CJK_PUNCT_INLINE_MATH = re.compile(
     r"[，。；：！？、]\$[^$\n]+\$"
 )
 
-BROKEN_LATEX_MARKERS = (
-    "boxed{",
-    "begin{",
-    "end{",
-    "mathbf{",
-    "mathrm{",
-    "operatorname",
-    "frac{",
-    "sqrt{",
-    "text{",
-    "cdot",
-    "times",
-    "rightarrow",
-    "leftrightarrow",
-    "lVert",
-    "rVert",
-    "psi",
-    "kappa",
-    "Delta",
-    "sin",
-    "cos",
-    "tan",
+BROKEN_LATEX_COMMAND = re.compile(
+    r"(?<![A-Za-z\\])"
+    r"(?:boxed|begin|end|mathbf|mathrm|operatorname|frac|sqrt|text|cdot|"
+    r"times|rightarrow|leftrightarrow|lVert|rVert|psi|kappa|Delta|"
+    r"sin|cos|tan)"
+    r"(?=\\b|\\{)"
 )
-
 
 def check_file(path: Path) -> list[str]:
     errors: list[str] = []
@@ -99,13 +82,12 @@ def check_file(path: Path) -> list[str]:
             )
 
         if in_display_math:
-            for marker in BROKEN_LATEX_MARKERS:
-                if marker in line and f"\\{marker}" not in line:
-                    errors.append(
-                        f"{path}:{line_number}: suspicious bare LaTeX token "
-                        f"'{marker}'; possible missing backslash"
-                    )
-                    break
+            broken_command = BROKEN_LATEX_COMMAND.search(line)
+            if broken_command:
+                errors.append(
+                    f"{path}:{line_number}: suspicious bare LaTeX token "
+                    f"'{broken_command.group()}'; possible missing backslash"
+                )
 
         if (
             not in_display_math
