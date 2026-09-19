@@ -2,171 +2,205 @@
 
 ## Purpose
 
-Convert global Cartesian coordinates $(x,y)$ into road-relative coordinates $(s,l)$, and back.
+Convert global Cartesian coordinates `(x, y)` into road-relative coordinates `(s, l)`, and back.
 
 ```text
 Cartesian: where am I in the world?
-Frenet:    where am I relative to the road?
+Frenet:    where am I relative to the reference line?
 ```
 
 ## Meaning
 
 ```text
-s = distance along the reference line
+s = station along the reference line
 l = signed lateral offset from the reference line
 ```
 
-Positive $l$ is to the **left** of the reference direction.
+Positive `l` is to the **left** of the reference direction.
+
+> In the current implementation, `s` is the spline parameter built from cumulative distances between raw waypoints. It is used as an arc-length approximation.
 
 ---
 
 # XY → SL
 
-## 1. Why Projection?
+## 1. Find the Nearest Reference Station
 
-For a Cartesian point $P$, first find the closest point $Q$ on the reference line.
+For a Cartesian point:
+
+$$
+P=(x,y)^T
+$$
+
+find the reference-line station that minimizes distance to the spline:
+
+$$
+s^*=argmin_s lVert P-P_r(s)Vert^2
+$$
 
 Then:
 
+$$
+P_r=P_r(s^*)
+$$
+
+So the longitudinal Frenet coordinate is:
+
+$$
+oxed{s=s^*}
+$$
+
+Current `ReferenceLine.nearest_s()` does this in two stages:
+
 ```text
-position of Q along road → s
-P relative to Q sideways → l
+query point P
+      ↓
+find nearest raw waypoint
+      ↓
+build a local s interval
+      ↓
+ternary-search distance to the spline
+      ↓
+nearest s
 ```
 
-## 2. Project onto One Segment
+The current baseline assumes the projection is locally unique.
 
-Segment:
+## 2. Compute Signed Lateral Offset
 
-$$
-A\rightarrow B
-$$
-
-Direction:
+Query the spline heading at `s`:
 
 $$
-d=B-A
-$$
-
-Relative vector:
-
-$$
-r=P-A
-$$
-
-Projection ratio:
-
-$$
-t=\frac{r\cdot d}{\lVert d\rVert^2}
-$$
-
-Why dot product?
-
-> $r\cdot d$ extracts the component of $r$ along the segment direction.
-
-Clamp:
-
-$$
-0\le t\le1
-$$
-
-Closest point on the finite segment:
-
-$$
-Q=A+t(B-A)
-$$
-
-## 3. Find the Closest Segment
-
-Repeat projection for every segment and choose the $Q$ with minimum:
-
-$$
-\lVert P-Q\rVert^2
-$$
-
-## 4. Compute s
-
-If $Q$ lies at ratio $t$ on segment $(i,i+1)$:
-
-$$
-s=s_i+t(s_{i+1}-s_i)
-$$
-
-## 5. Compute Signed l
-
-Segment yaw:
-
-$$
-\psi=\mathrm{atan2}(\Delta y,\Delta x)
+psi_r=psi_r(s)
 $$
 
 Left unit normal:
 
 $$
-n=
-\begin{bmatrix}
--\sin\psi\\
-\cos\psi
-\end{bmatrix}
+mathbf{n}_r=
+egin{bmatrix}
+-sinpsi_r\
+cospsi_r
+end{bmatrix}
 $$
 
-Then:
+Position error from the reference point to the Cartesian point:
 
 $$
-l=(P-Q)\cdot n
+e=P-P_r
 $$
 
-Why dot product again?
+Project this error onto the left normal:
 
-> This time it extracts the component in the **lateral normal direction**.
+$$
+oxed{l=ecdotmathbf{n}_r}
+$$
 
-So:
+Therefore:
+
+```text
+l > 0  → left of reference direction
+l = 0  → on the reference line
+l < 0  → right of reference direction
+```
+
+Whole XY → SL chain:
 
 ```text
 P(x, y)
-  ↓ closest projection Q
-Q position along road → s
-(P - Q) along normal  → l
+  ↓ nearest_s()
+reference station s
+  ↓ ReferenceLine.position(s), yaw(s)
+Pr, nr
+  ↓
+l = (P - Pr) · nr
+  ↓
+(s, l)
 ```
 
 ---
 
 # SL → XY
 
-## 1. Find Reference Position at s
-
-Locate the segment containing $s$, then linearly interpolate the reference position:
+Given `(s, l)`, first query the smooth reference-line geometry:
 
 $$
-P_r(s)=[x_r(s),y_r(s)]^T
-$$
-
-## 2. Move l Along the Normal
-
-$$
-\boxed{P=P_r+l\,n_r}
-$$
-
-or
-
-$$
-x=x_r-l\sin\psi_r
+P_r(s)=
+egin{bmatrix}
+x_r(s)\
+y_r(s)
+end{bmatrix}
 $$
 
 $$
-y=y_r+l\cos\psi_r
+mathbf{n}_r(s)=
+egin{bmatrix}
+-sinpsi_r(s)\
+cospsi_r(s)
+end{bmatrix}
 $$
 
-So:
+Then move `l` meters along the reference-line normal:
+
+$$
+oxed{P=P_r+lmathbf{n}_r}
+$$
+
+Therefore:
+
+$$
+x=x_r-lsinpsi_r
+$$
+
+$$
+y=y_r+lcospsi_r
+$$
+
+Whole SL → XY chain:
 
 ```text
 (s, l)
-  ↓
-find reference point at s
-  ↓
-move l meters along left normal
+  ↓ query spline at s
+Pr, ψr
+  ↓ build left normal nr
+P = Pr + l nr
   ↓
 (x, y)
 ```
+
+---
+
+# Old Baseline vs Current Implementation
+
+Old Chapter baseline:
+
+```text
+raw polyline
+→ project onto every straight segment
+→ choose nearest segment projection
+```
+
+Current implementation:
+
+```text
+raw waypoints
+→ cubic spline ReferenceLine
+→ nearest raw waypoint for coarse localization
+→ local search on the spline for nearest s
+→ use spline position / yaw to compute l
+```
+
+The key idea is unchanged:
+
+$$
+oxed{
+	ext{find the closest reference point first}
+ightarrow
+	ext{measure longitudinal station and lateral offset}
+}
+$$
+
+The difference is that the current version performs the geometry on a **smooth spline** instead of treating the road as disconnected straight segments.
 
 ---
 
@@ -174,29 +208,32 @@ move l meters along left normal
 
 ```text
 XY → SL:
-point P
-  ↓ project onto reference line
-closest Q
-  ↓
-Q along road → s
-P-Q along normal → l
+P(x, y)
+  ↓ nearest point on smooth ReferenceLine
+s
+  ↓ lateral projection onto nr
+l
 
 SL → XY:
-s → reference point Pr
-l → move along normal nr
+s → Pr(s), ψr(s), nr(s)
+l → move along nr
 P = Pr + l nr
 ```
 
 ## Output
 
-A coordinate bridge:
-
 $$
-(x,y)\leftrightarrow(s,l)
+oxed{(x,y)leftrightarrow(s,l)}
 $$
 
-## Why Next Step Is Needed
+This provides the coordinate bridge used by the Sampling Planner:
 
-The current conversion is based on straight polyline segments.
-
-For Sampling Planner we need smooth and consistent road geometry, so Chapter 10 first upgrades the Reference Line to a cubic spline, then Chapter 11 upgrades XY ↔ SL using that same spline.
+```text
+ego Cartesian state
+      ↓
+initial Frenet state
+      ↓
+sample Frenet Candidates
+      ↓
+Cartesian Candidate Paths
+```
