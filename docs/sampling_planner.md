@@ -108,6 +108,174 @@ $$
 
 ---
 
+## Cartesian Ego State → Initial Frenet State
+
+Sampling 从当前 ego Cartesian 几何状态开始：
+
+$
+(x,y,\psi,\kappa)
+$
+
+先通过 XY → SL 投影得到：
+
+$
+(s,l)
+$
+
+再查询 Reference Line 在 $s$ 处的：
+
+$
+\psi_r,\quad \kappa_r,\quad \kappa_r'
+$
+
+定义 ego 与 Reference Line 的方向差：
+
+$
+\Delta\psi=\psi-\psi_r
+$
+
+实际实现将 $\Delta\psi$ wrap 到 $(-\pi,\pi]$。
+
+由前面的：
+
+$
+P'=(1-\kappa_r l)\mathbf{t}_r+l'\mathbf{n}_r
+$
+
+可知 $P'$ 在 Reference Line 局部坐标系中的切向 / 法向分量为：
+
+$
+1-\kappa_r l,qquad l'
+$
+
+因此：
+
+$
+\tan\Delta\psi=
+\frac{l'}{1-\kappa_r l}
+$
+
+得到：
+
+$
+\boxed{
+l'=(1-\kappa_r l)\tan\Delta\psi
+}
+$
+
+定义：
+
+$
+A=1-\kappa_r l
+$
+
+则：
+
+$
+l'=A\tan\Delta\psi
+$
+
+对 Reference Line 的 $s$ 再求导：
+
+$
+l''
+=
+A'\tan\Delta\psi
++
+A\sec^2\Delta\psi
+\frac{d\Delta\psi}{ds}
+$
+
+其中：
+
+$
+A'=-(\kappa_r'l+\kappa_r l')
+$
+
+Ego 曲率定义在 ego 自己的路径弧长 $s_{\mathrm{ego}}$ 上：
+
+$
+\boxed{
+\kappa=\frac{d\psi}{ds_{\mathrm{ego}}}
+}
+$
+
+Ego 的微小位移 $ds_{\mathrm{ego}}$ 投影到 Reference Line 切向：
+
+$
+ds_{\mathrm{ego}}\cos\Delta\psi=A\,ds
+$
+
+因此：
+
+$
+\boxed{
+\frac{ds_{\mathrm{ego}}}{ds}
+=
+\frac{A}{\cos\Delta\psi}
+}
+$
+
+又因为：
+
+$
+\Delta\psi=\psi-\psi_r
+$
+
+所以：
+
+$
+\frac{d\Delta\psi}{ds}
+=
+\kappa\frac{A}{\cos\Delta\psi}
+-
+\kappa_r
+$
+
+最终：
+
+$
+\boxed{
+l''
+=
+-(\kappa_r'l+\kappa_r l')\tan\Delta\psi
++
+\frac{A}{\cos^2\Delta\psi}
+\left[
+\kappa\frac{A}{\cos\Delta\psi}
+-
+\kappa_r
+\right]
+}
+$
+
+其中：
+
+$
+A=1-\kappa_r l
+$
+
+直觉上：
+
+- $l'$ 主要表示当前 heading 相对 Reference Line 的偏离；
+- $l''$ 表示这种相对几何接下来如何变化，因此会包含 ego 曲率 $\kappa$、Reference Line 曲率 $\kappa_r$ 和曲率变化 $\kappa_r'$。
+
+Sanity check：如果 ego 正好位于 Reference Line 上，并且 heading / curvature 都相同：
+
+$
+l=0,\quad \Delta\psi=0,\quad \kappa=\kappa_r
+$
+
+则：
+
+$
+l'=0,\qquad l''=0
+$
+
+> 以上角度统一使用 rad；曲率单位为 $1/m$。当 $\cos\Delta\psi$ 接近 $0$ 时，Frenet 表达接近奇异，实际实现需要保护。
+
+---
+
 ## Position — $P$
 
 $$
@@ -208,34 +376,120 @@ $$
 
 ---
 
+## Lateral Sampling
+
+当前第一版只做空间 Path Sampling，不进行 longitudinal trajectory optimization。
+
+Target lateral positions：
+
+$
+l_f\in\{-1.5,-0.75,0,0.75,1.5\}\;m
+$
+
+Target path lengths（Reference Line $s$ 方向的 horizon）：
+
+$
+S\in\{10,20\}\;m
+$
+
+Sampling resolution：
+
+$
+\Delta s=0.5\;m
+$
+
+因此当前共生成：
+
+$
+5\times2=10
+$
+
+条 Candidate。
+
+同样的横向目标下，$S$ 越长，横移可以完成得越平缓。
+
+### Quintic Polynomial
+
+令局部纵向变量：
+
+$
+\sigma=s-s_0,\qquad 0\le\sigma\le S
+$
+
+横向曲线使用五次多项式：
+
+$
+l(\sigma)=
+a_0+a_1\sigma+a_2\sigma^2+a_3\sigma^3+a_4\sigma^4+a_5\sigma^5
+$
+
+六个系数对应六个边界条件：
+
+$
+l_0,\quad l_0',\quad l_0''
+$
+
+以及：
+
+$
+l_f,\quad l_f',\quad l_f''
+$
+
+当前 terminal state 设为：
+
+$
+l_f'=0,\qquad l_f''=0
+$
+
+每组 $(l_f,S)$ 生成一条 Frenet Candidate：
+
+$
+(s,l,l',l'')
+$
+
+再按 $\Delta s=0.5\;m$ 离散采样，并转换到 Cartesian Path。
+
+> `FrenetTrajectoryPoint.s` 是 Reference Line station；`PathPoint.s` 是 Candidate Cartesian path 自己的累计弧长，两者语义不同。
+
+---
+
 ## Main Flow
 
 ```text
-Frenet Candidate
+VehicleState
+x, y, ψ, κ
+      ↓
+XY → SL
+      ↓
+initial Frenet state
 s, l, l', l''
+      ↓
+sample target l + target length
+      ↓
+quintic polynomial
+      ↓
+multiple Frenet Candidates
       ↓
 Reference Line
 Pr, ψr, κr, κr'
       ↓
-P = Pr + l nr
+P / P' / P''
       ↓
-x, y
-      ↓
-P'
-      ↓
-yaw ψ
-      ↓
-P''
-      ↓
-curvature κ
-      ↓
-Cartesian PathPoint
+Cartesian Candidate Paths
 x, y, s, ψ, κ
 ```
 
-$$
-\boxed{(s,l,l',l'')\rightarrow(x,y,s,\psi,\kappa)}
-$$
+$
+\boxed{
+(x,y,\psi,\kappa)
+\rightarrow
+(s,l,l',l'')
+\rightarrow
+\text{Frenet Candidates}
+\rightarrow
+\text{Cartesian Paths}
+}
+$
 
 ---
 

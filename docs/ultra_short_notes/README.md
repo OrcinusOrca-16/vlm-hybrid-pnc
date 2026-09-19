@@ -42,7 +42,6 @@ Sampling Planner
 5. [Closed-loop Simulation](05_closed_loop_simulation.md)
 6. [Reference Line Basics](06_reference_line_basics.md)
 7. [Cartesian ↔ Frenet Basics](07_cartesian_frenet_basics.md)
-8. [Sampling Planner](08_sampling_planner.md)
 
 ## One-sentence Memory
 
@@ -52,4 +51,3 @@ Sampling Planner
 - **Closed Loop**: controller output changes the vehicle, then the new state creates the next error.
 - **Reference Line**: gives road geometry a longitudinal coordinate `s`.
 - **Frenet / SL**: describes a point as “how far along the road + how far sideways”.
-- **Sampling Planner**: initial Frenet state + sampled lateral targets/horizons → multiple smooth candidate paths.
