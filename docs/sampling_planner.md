@@ -461,9 +461,7 @@ $$
 对 $s$ 求导：
 
 $$
-\frac{d\mathbf{t}_r}{ds}
-=
-\left(
+\frac{d\mathbf{t}_r}{ds} = \left(
 -\sin\psi_r\frac{d\psi_r}{ds},
 \ \cos\psi_r\frac{d\psi_r}{ds}
 \right)^T
@@ -546,11 +544,7 @@ $$
 对 Reference Line 的 $s$ 再求导：
 
 $$
-l''
-=
-A'\tan\Delta\psi
-+
-A\sec^2\Delta\psi
+l'' = A'\tan\Delta\psi + A\sec^2\Delta\psi
 \frac{d\Delta\psi}{ds}
 $$
 
@@ -569,9 +563,7 @@ $$
 因此：
 
 $$
-\frac{d\Delta\psi}{ds}
-=
-\frac{d\psi}{ds}-\kappa_r
+\frac{d\Delta\psi}{ds} = \frac{d\psi}{ds}-\kappa_r
 $$
 
 Ego 曲率定义在 ego 自己的路径弧长 $s_{\mathrm{ego}}$ 上：
@@ -608,40 +600,28 @@ $$
 
 $$
 \boxed{
-\frac{ds_{\mathrm{ego}}}{ds}
-=
-\frac{A}{\cos\Delta\psi}
+\frac{ds_{\mathrm{ego}}}{ds} = \frac{A}{\cos\Delta\psi}
 }
 $$
 
 由链式法则：
 
 $$
-\frac{d\psi}{ds}
-=
-\frac{d\psi}{ds_{\mathrm{ego}}}
-\frac{ds_{\mathrm{ego}}}{ds}
-=
-\kappa\frac{A}{\cos\Delta\psi}
+\frac{d\psi}{ds} = \frac{d\psi}{ds_{\mathrm{ego}}}
+\frac{ds_{\mathrm{ego}}}{ds} = \kappa\frac{A}{\cos\Delta\psi}
 $$
 
 所以：
 
 $$
-\frac{d\Delta\psi}{ds}
-=
-\kappa\frac{A}{\cos\Delta\psi}-\kappa_r
+\frac{d\Delta\psi}{ds} = \kappa\frac{A}{\cos\Delta\psi}-\kappa_r
 $$
 
 最终：
 
 $$
 \boxed{
-l''
-=
--(\kappa_r'l+\kappa_r l')\tan\Delta\psi
-+
-\frac{A}{\cos^2\Delta\psi}
+l'' = -(\kappa_r'l+\kappa_r l')\tan\Delta\psi + \frac{A}{\cos^2\Delta\psi}
 \left[
 \kappa\frac{A}{\cos\Delta\psi}
 -\kappa_r
@@ -728,15 +708,7 @@ $$
 再次求导：
 
 $$
-P''
-=
-A'\mathbf{t}_r
-+
-A\mathbf{t}_r'
-+
-B'\mathbf{n}_r
-+
-B\mathbf{n}_r'
+P'' = A'\mathbf{t}_r + A\mathbf{t}_r' + B'\mathbf{n}_r + B\mathbf{n}_r'
 $$
 
 其中：
@@ -757,9 +729,7 @@ $$
 $$
 \boxed{
 P''=
-(-\kappa_r'l-2\kappa_r l')\mathbf{t}_r
-+
-[\kappa_r(1-\kappa_r l)+l'']\mathbf{n}_r
+(-\kappa_r'l-2\kappa_r l')\mathbf{t}_r + [\kappa_r(1-\kappa_r l)+l'']\mathbf{n}_r
 }
 $$
 
@@ -810,9 +780,7 @@ $$
 计算二维叉积：
 
 $$
-P'\times P''
-=
-q^2\frac{d\psi}{du}
+P'\times P'' = q^2\frac{d\psi}{du}
 $$
 
 曲线自身弧长记为 $\ell$：
@@ -830,11 +798,7 @@ $$
 链式法则：
 
 $$
-\kappa
-=
-\frac{d\psi/du}{d\ell/du}
-=
-\frac{1}{q}\frac{d\psi}{du}
+\kappa = \frac{d\psi/du}{d\ell/du} = \frac{1}{q}\frac{d\psi}{du}
 $$
 
 因此：
@@ -895,19 +859,13 @@ $$
 代入 $A,B,C,D$：
 
 $$
-P'\times P''
-=
-(1-\kappa_r l)[\kappa_r(1-\kappa_r l)+l'']
-+
-l'(\kappa_r'l+2\kappa_r l')
+P'\times P'' = (1-\kappa_r l)[\kappa_r(1-\kappa_r l)+l''] + l'(\kappa_r'l+2\kappa_r l')
 $$
 
 同时：
 
 $$
-\lVert P'\rVert^2
-=
-(1-\kappa_r l)^2+(l')^2
+\lVert P'\rVert^2 = (1-\kappa_r l)^2+(l')^2
 $$
 
 最终：
