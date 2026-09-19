@@ -1,0 +1,30 @@
+name: Markdown Math Check
+
+on:
+  push:
+    paths:
+      - "docs/**/*.md"
+      - "scripts/check_markdown_math.py"
+      - ".github/workflows/markdown-math-check.yml"
+  pull_request:
+    paths:
+      - "docs/**/*.md"
+      - "scripts/check_markdown_math.py"
+      - ".github/workflows/markdown-math-check.yml"
+  workflow_dispatch:
+
+jobs:
+  check-markdown-math:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check Markdown math
+        run: python3 scripts/check_markdown_math.py
