@@ -167,11 +167,7 @@ $$
 
 $$
 \boxed{
-l''
-=
--(\kappa_r'l+\kappa_r l')\tan\Delta\psi
-+
-\frac{A}{\cos^2\Delta\psi}
+l'' = -(\kappa_r'l+\kappa_r l')\tan\Delta\psi + \frac{A}{\cos^2\Delta\psi}
 \left[
 \kappa\frac{A}{\cos\Delta\psi}
 -\kappa_r
@@ -191,9 +187,7 @@ $$
 
 $$
 \boxed{
-\frac{ds_{\mathrm{ego}}}{ds}
-=
-\frac{1-\kappa_r l}{\cos\Delta\psi}
+\frac{ds_{\mathrm{ego}}}{ds} = \frac{1-\kappa_r l}{\cos\Delta\psi}
 }
 $$
 
@@ -368,9 +362,7 @@ $$
 横向曲线：
 
 $$
-l(\sigma)
-=
-a_0+a_1\sigma+a_2\sigma^2+a_3\sigma^3+a_4\sigma^4+a_5\sigma^5
+l(\sigma) = a_0+a_1\sigma+a_2\sigma^2+a_3\sigma^3+a_4\sigma^4+a_5\sigma^5
 $$
 
 六个系数对应六个边界条件：
@@ -879,11 +871,7 @@ $$
 对 Reference Line 的 $s$ 再求导：
 
 $$
-l''
-=
-A'\tan\Delta\psi
-+
-A\sec^2\Delta\psi
+l'' = A'\tan\Delta\psi + A\sec^2\Delta\psi
 \frac{d\Delta\psi}{ds}
 $$
 
@@ -902,9 +890,7 @@ $$
 因此：
 
 $$
-\frac{d\Delta\psi}{ds}
-=
-\frac{d\psi}{ds}
+\frac{d\Delta\psi}{ds} = \frac{d\psi}{ds}
 -\kappa_r
 $$
 
@@ -944,29 +930,21 @@ $$
 
 $$
 \boxed{
-\frac{ds_{\mathrm{ego}}}{ds}
-=
-\frac{A}{\cos\Delta\psi}
+\frac{ds_{\mathrm{ego}}}{ds} = \frac{A}{\cos\Delta\psi}
 }
 $$
 
 由链式法则：
 
 $$
-\frac{d\psi}{ds}
-=
-\frac{d\psi}{ds_{\mathrm{ego}}}
-\frac{ds_{\mathrm{ego}}}{ds}
-=
-\kappa\frac{A}{\cos\Delta\psi}
+\frac{d\psi}{ds} = \frac{d\psi}{ds_{\mathrm{ego}}}
+\frac{ds_{\mathrm{ego}}}{ds} = \kappa\frac{A}{\cos\Delta\psi}
 $$
 
 所以：
 
 $$
-\frac{d\Delta\psi}{ds}
-=
-\kappa\frac{A}{\cos\Delta\psi}
+\frac{d\Delta\psi}{ds} = \kappa\frac{A}{\cos\Delta\psi}
 -\kappa_r
 $$
 
@@ -974,11 +952,7 @@ $$
 
 $$
 \boxed{
-l''
-=
--(\kappa_r'l+\kappa_r l')\tan\Delta\psi
-+
-\frac{A}{\cos^2\Delta\psi}
+l'' = -(\kappa_r'l+\kappa_r l')\tan\Delta\psi + \frac{A}{\cos^2\Delta\psi}
 \left[
 \kappa\frac{A}{\cos\Delta\psi}
 -\kappa_r
