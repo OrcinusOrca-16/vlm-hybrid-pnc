@@ -35,7 +35,7 @@ $$
 find the reference-line station that minimizes distance to the spline:
 
 $$
-s^*=argmin_s lVert P-P_r(s)Vert^2
+s^*=\operatorname*{argmin}_s \lVert P-P_r(s)Vert^2
 $$
 
 Then:
@@ -47,7 +47,7 @@ $$
 So the longitudinal Frenet coordinate is:
 
 $$
-oxed{s=s^*}
+\boxed{s=s^*}
 $$
 
 Current `ReferenceLine.nearest_s()` does this in two stages:
@@ -71,17 +71,17 @@ The current baseline assumes the projection is locally unique.
 Query the spline heading at `s`:
 
 $$
-psi_r=psi_r(s)
+\psi_r=\psi_r(s)
 $$
 
 Left unit normal:
 
 $$
-mathbf{n}_r=
-egin{bmatrix}
--sinpsi_r\
-cospsi_r
-end{bmatrix}
+\mathbf{n}_r=
+\begin{bmatrix}
+-\sin\psi_r\\
+\cos\psi_r
+\end{bmatrix}
 $$
 
 Position error from the reference point to the Cartesian point:
@@ -93,7 +93,7 @@ $$
 Project this error onto the left normal:
 
 $$
-oxed{l=ecdotmathbf{n}_r}
+\boxed{l=e\cdot\mathbf{n}_r}
 $$
 
 Therefore:
@@ -126,34 +126,34 @@ Given `(s, l)`, first query the smooth reference-line geometry:
 
 $$
 P_r(s)=
-egin{bmatrix}
-x_r(s)\
+\begin{bmatrix}
+x_r(s)\\
 y_r(s)
-end{bmatrix}
+\end{bmatrix}
 $$
 
 $$
-mathbf{n}_r(s)=
-egin{bmatrix}
--sinpsi_r(s)\
-cospsi_r(s)
-end{bmatrix}
+\mathbf{n}_r(s)=
+\begin{bmatrix}
+-\sin\psi_r(s)\\
+\cos\psi_r(s)
+\end{bmatrix}
 $$
 
 Then move `l` meters along the reference-line normal:
 
 $$
-oxed{P=P_r+lmathbf{n}_r}
+\boxed{P=P_r+l\mathbf{n}_r}
 $$
 
 Therefore:
 
 $$
-x=x_r-lsinpsi_r
+x=x_r-l\sin\psi_r
 $$
 
 $$
-y=y_r+lcospsi_r
+y=y_r+l\cos\psi_r
 $$
 
 Whole SL → XY chain:
@@ -193,7 +193,7 @@ raw waypoints
 The key idea is unchanged:
 
 $$
-oxed{
+\boxed{
 	ext{find the closest reference point first}
 ightarrow
 	ext{measure longitudinal station and lateral offset}
@@ -223,7 +223,7 @@ P = Pr + l nr
 ## Output
 
 $$
-oxed{(x,y)leftrightarrow(s,l)}
+\boxed{(x,y)left\rightarrow(s,l)}
 $$
 
 This provides the coordinate bridge used by the Sampling Planner:

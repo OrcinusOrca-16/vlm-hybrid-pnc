@@ -14,6 +14,30 @@ CJK_PUNCT_INLINE_MATH = re.compile(
     r"[，。；：！？、]\$[^$\n]+\$"
 )
 
+BROKEN_LATEX_MARKERS = (
+    "boxed{",
+    "begin{",
+    "end{",
+    "mathbf{",
+    "mathrm{",
+    "operatorname",
+    "frac{",
+    "sqrt{",
+    "text{",
+    "cdot",
+    "times",
+    "rightarrow",
+    "leftrightarrow",
+    "lVert",
+    "rVert",
+    "psi",
+    "kappa",
+    "Delta",
+    "sin",
+    "cos",
+    "tan",
+)
+
 
 def check_file(path: Path) -> list[str]:
     errors: list[str] = []
@@ -21,7 +45,21 @@ def check_file(path: Path) -> list[str]:
     in_display_math = False
     display_start_line: int | None = None
 
-    lines = path.read_text(encoding="utf-8").splitlines()
+    content = path.read_text(encoding="utf-8")
+
+    for index, character in enumerate(content):
+        code_point = ord(character)
+        if (
+            code_point == 0x7F
+            or (code_point < 0x20 and character not in "\t\n\r")
+        ):
+            line_number = content.count("\n", 0, index) + 1
+            errors.append(
+                f"{path}:{line_number}: contains ASCII control character "
+                f"0x{code_point:02x}; possible broken LaTeX escaping"
+            )
+
+    lines = content.splitlines()
 
     for line_number, line in enumerate(lines, start=1):
         stripped = line.strip()
@@ -59,6 +97,15 @@ def check_file(path: Path) -> list[str]:
                 f"standalone operator '{stripped}' inside display math; "
                 "keep it on the same TeX line or use an aligned block"
             )
+
+        if in_display_math:
+            for marker in BROKEN_LATEX_MARKERS:
+                if marker in line and f"\\{marker}" not in line:
+                    errors.append(
+                        f"{path}:{line_number}: suspicious bare LaTeX token "
+                        f"'{marker}'; possible missing backslash"
+                    )
+                    break
 
         if (
             not in_display_math
