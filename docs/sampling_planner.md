@@ -399,7 +399,7 @@ $$
 
 再按 $\Delta s=0.5\;m$ 离散采样，并转换到 Cartesian Path。
 
-> \`FrenetTrajectoryPoint.s\` 是 Reference Line station；\`PathPoint.s\` 是 Candidate Cartesian path 自己的累计弧长，两者语义不同。
+> `FrenetTrajectoryPoint.s` 是 Reference Line station；`PathPoint.s` 是 Candidate Cartesian path 自己的累计弧长，两者语义不同。
 
 ---
 
