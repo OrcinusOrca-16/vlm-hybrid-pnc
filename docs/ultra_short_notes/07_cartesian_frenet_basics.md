@@ -35,7 +35,7 @@ $$
 find the reference-line station that minimizes distance to the spline:
 
 $$
-s^*=\operatorname*{argmin}_s \lVert P-P_r(s)Vert^2
+s^*=\arg\min_s \lVert P-P_r(s)\rVert^2
 $$
 
 Then:
@@ -192,13 +192,11 @@ raw waypoints
 
 The key idea is unchanged:
 
-$$
-\boxed{
-	ext{find the closest reference point first}
-ightarrow
-	ext{measure longitudinal station and lateral offset}
-}
-$$
+```text
+find the closest reference point first
+                ↓
+measure longitudinal station and lateral offset
+```
 
 The difference is that the current version performs the geometry on a **smooth spline** instead of treating the road as disconnected straight segments.
 
@@ -223,7 +221,7 @@ P = Pr + l nr
 ## Output
 
 $$
-\boxed{(x,y)left\rightarrow(s,l)}
+\boxed{(x,y)\leftrightarrow(s,l)}
 $$
 
 This provides the coordinate bridge used by the Sampling Planner:

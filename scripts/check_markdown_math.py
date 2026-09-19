@@ -21,6 +21,16 @@ BROKEN_LATEX_COMMAND = re.compile(
     r"sin|cos|tan)"
     r"(?=\\b|\\{)"
 )
+FORBIDDEN_GITHUB_LATEX = (
+    "\\operatorname",
+)
+BROKEN_ESCAPE_REMNANT = re.compile(
+    r"(?<![A-Za-z\\])(?:oxed|egin|ext|ightarrow|rac|imes)(?=\\b|\\{)"
+)
+BROKEN_LATEX_SEQUENCE = re.compile(
+    r"(?<!\\)\\bleft\\(?:rightarrow|leftrightarrow)"
+)
+
 
 def check_file(path: Path) -> list[str]:
     errors: list[str] = []
@@ -28,20 +38,27 @@ def check_file(path: Path) -> list[str]:
     in_display_math = False
     display_start_line: int | None = None
 
-    content = path.read_text(encoding="utf-8")
+    raw_content = path.read_bytes()
 
-    for index, character in enumerate(content):
-        code_point = ord(character)
+    for index, byte in enumerate(raw_content):
+        is_crlf = (
+            byte == 0x0D
+            and index + 1 < len(raw_content)
+            and raw_content[index + 1] == 0x0A
+        )
         if (
-            code_point == 0x7F
-            or (code_point < 0x20 and character not in "\t\n\r")
+            byte == 0x09
+            or byte == 0x7F
+            or (byte < 0x20 and byte not in (0x09, 0x0A, 0x0D))
+            or (byte == 0x0D and not is_crlf)
         ):
-            line_number = content.count("\n", 0, index) + 1
+            line_number = raw_content.count(b"\n", 0, index) + 1
             errors.append(
                 f"{path}:{line_number}: contains ASCII control character "
-                f"0x{code_point:02x}; possible broken LaTeX escaping"
+                f"0x{byte:02x}; possible broken LaTeX escaping"
             )
 
+    content = raw_content.decode("utf-8")
     lines = content.splitlines()
 
     for line_number, line in enumerate(lines, start=1):
@@ -87,6 +104,27 @@ def check_file(path: Path) -> list[str]:
                 errors.append(
                     f"{path}:{line_number}: suspicious bare LaTeX token "
                     f"'{broken_command.group()}'; possible missing backslash"
+                )
+
+            for forbidden_macro in FORBIDDEN_GITHUB_LATEX:
+                if forbidden_macro in line:
+                    errors.append(
+                        f"{path}:{line_number}: GitHub math does not allow "
+                        f"'{forbidden_macro}'"
+                    )
+
+            broken_remnant = BROKEN_ESCAPE_REMNANT.search(line)
+            if broken_remnant:
+                errors.append(
+                    f"{path}:{line_number}: suspicious broken LaTeX remnant "
+                    f"'{broken_remnant.group()}'"
+                )
+
+            broken_sequence = BROKEN_LATEX_SEQUENCE.search(line)
+            if broken_sequence:
+                errors.append(
+                    f"{path}:{line_number}: suspicious broken LaTeX sequence "
+                    f"'{broken_sequence.group()}'"
                 )
 
         if (
