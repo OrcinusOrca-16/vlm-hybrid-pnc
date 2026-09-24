@@ -25,6 +25,25 @@ class VehicleState:
 
 
 @dataclass
+class VehicleParams:
+    """Geometric parameters of the ego vehicle."""
+
+    wheelbase_m: float
+    front_overhang_m: float
+    rear_overhang_m: float
+    width_m: float
+
+
+@dataclass
+class StaticObstacle:
+    """A circular static obstacle in the global Cartesian frame."""
+
+    x: float
+    y: float
+    radius_m: float
+
+
+@dataclass
 class ControlCommand:
     """Control input applied to the vehicle."""
 

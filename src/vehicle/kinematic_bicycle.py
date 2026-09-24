@@ -54,8 +54,8 @@ def update_vehicle_state(
         state.speed + speed_dot * dt,
     )
     next_curvature = (
-    math.tan(command.steering_angle)
-    / wheelbase_m
+        math.tan(command.steering_angle)
+        / wheelbase_m
     )
 
     return VehicleState(

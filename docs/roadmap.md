@@ -187,13 +187,13 @@
 
 #### Hard Constraints
 参考 Autoware hard constraints。
-- [ ] 定义 VehicleParams / ego footprint
-- [ ] 定义 StaticObstacle geometry
-- [ ] curvature limit
-- [ ] vehicle footprint collision checking
-- [ ] minimum obstacle distance
-- [ ] drivable-area / road-boundary checking
-- [ ] 剔除 infeasible Candidates
+- [x] 定义 VehicleParams / ego footprint
+- [x] 定义 StaticObstacle geometry
+- [x] curvature limit
+- [x] vehicle footprint collision checking
+- [x] minimum obstacle distance
+- [x] drivable-area / road-boundary checking
+- [x] 剔除 infeasible Candidates
 
 #### Soft Cost
 第一版固定使用：
