@@ -142,7 +142,7 @@ def has_safe_clearance(
         path_point=path_point,
         vehicle_params=vehicle_params,
         obstacle=obstacle,
-    ) >= minimum_clearance_m
+    ) > minimum_clearance_m
 
 
 def is_curvature_feasible(
@@ -217,7 +217,7 @@ def is_obstacle_clearance_feasible(
                 obstacle=obstacle,
             )
 
-            if clearance < minimum_clearance_m:
+            if clearance <= minimum_clearance_m:
                 return False
 
     return True
