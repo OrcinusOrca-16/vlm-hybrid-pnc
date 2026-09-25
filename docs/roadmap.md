@@ -197,11 +197,11 @@
 
 #### Soft Cost
 第一版固定使用：
-- [ ] lateral deviation cost
-- [ ] curvature cost
-- [ ] path length / progress cost
-- [ ] weighted total cost
-- [ ] 选择 minimum-cost Candidate
+- [x] lateral deviation cost
+- [x] curvature cost
+- [x] path length / progress cost
+- [x] weighted total cost
+- [x] 选择 minimum-cost Candidate
 
 #### Validation & Benchmark
 - [ ] straight nominal driving
