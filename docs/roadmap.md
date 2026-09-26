@@ -204,11 +204,11 @@
 - [x] 选择 minimum-cost Candidate
 
 #### Validation & Benchmark
-- [ ] straight nominal driving
-- [ ] curved Reference Line
-- [ ] lateral maneuver
-- [ ] static obstacle avoidance
-- [ ] 可视化全部 Candidates 和 Best Path
+- [x] straight nominal driving
+- [x] curved Reference Line
+- [x] lateral maneuver
+- [x] static obstacle avoidance
+- [x] 可视化全部 Candidates 和 Best Path
 - [ ] planning computation time
 - [ ] minimum obstacle clearance
 - [ ] maximum curvature
