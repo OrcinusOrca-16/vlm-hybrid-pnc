@@ -216,15 +216,58 @@
 - [ ] planning success rate
 
 ### 13. Optimization-based Path Planner
-使用 Frenet corridor + QP 优化生成平滑 Path，
+使用 Frenet corridor + convex QP 直接优化离散 lateral path，
 与 Sampling Planner 形成明确算法对照。
-固定方向：
-- [ ] 建立 lateral corridor / bounds
-- [ ] 定义 l / l' / l'' / l''' cost
-- [ ] 构造 QP
-- [ ] 使用 OSQP 求解
-- [ ] 输出统一 PathPoint
-- [ ] 验证 nominal / curve / obstacle scenarios
+
+#### QP State & Objective
+- [x] 定义离散优化变量 `l`
+- [x] 建立 `l'` finite-difference matrix
+- [x] 建立 `l''` finite-difference matrix
+- [x] 建立 `l'''` finite-difference matrix
+- [x] 定义 lateral reference / deviation cost
+- [x] 定义 `l' / l'' / l'''` smoothness cost
+- [x] 将 quadratic cost 转换为标准 QP `P / q`
+
+#### QP Constraints & Nominal Solve
+- [x] 将 lateral bounds 写成 inequality constraints
+- [x] 加入 initial `l` equality constraint
+- [x] 加入 initial `l'` equality constraint
+- [x] 加入 initial `l''` equality constraint
+- [x] 构造 OSQP 所需 `A / lower / upper`
+- [x] 使用 OSQP 求解单个 convex QP
+- [x] 处理 solver failure / infeasible status
+
+#### Path Reconstruction & Output
+- [x] 从 optimized `l` 恢复 `l' / l''`
+- [x] 输出统一 `FrenetTrajectory`
+- [x] Frenet → Cartesian
+- [x] 输出统一 `PathPoint`
+- [x] 封装 nominal Optimization Planner pipeline
+
+#### Lateral Corridor
+- [x] 沿 Reference Line 离散 planning horizon
+- [x] 根据 road boundary + vehicle half-width 建立基础 lateral bounds
+- [x] 将 StaticObstacle 从 Cartesian 投影到 Frenet / SL
+- [x] 考虑 ego footprint + minimum clearance 对 obstacle 进行 inflation
+- [x] 构造 obstacle 左绕 / 右绕两套 lateral corridor
+- [x] 检查 corridor feasibility
+
+#### Multi-corridor Optimization
+- [ ] 对每个 feasible corridor 分别构造并求解 QP
+- [ ] 丢弃 infeasible / solver-failure corridor
+- [ ] 从 feasible solutions 中选择 minimum-objective path
+
+#### Validation
+- [x] QP difference matrices
+- [x] QP objective `P / q`
+- [x] QP constraints `A / lower / upper`
+- [x] OSQP nominal solve
+- [x] Frenet trajectory reconstruction
+- [x] straight nominal Cartesian Path
+- [ ] curved Reference Line
+- [ ] lateral maneuver
+- [ ] static obstacle avoidance
+- [ ] corridor / optimized path visualization
 
 ### 14. Sampling vs Optimization Planner Benchmark
 在完全相同条件下比较两种 Path Planner：
