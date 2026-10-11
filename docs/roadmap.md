@@ -253,9 +253,9 @@
 - [x] 检查 corridor feasibility
 
 #### Multi-corridor Optimization
-- [ ] 对每个 feasible corridor 分别构造并求解 QP
-- [ ] 丢弃 infeasible / solver-failure corridor
-- [ ] 从 feasible solutions 中选择 minimum-objective path
+- [x] 对每个 feasible corridor 分别构造并求解 QP
+- [x] 丢弃 infeasible / solver-failure corridor
+- [x] 从 feasible solutions 中选择 minimum-objective path
 
 #### Validation
 - [x] QP difference matrices
@@ -264,10 +264,10 @@
 - [x] OSQP nominal solve
 - [x] Frenet trajectory reconstruction
 - [x] straight nominal Cartesian Path
-- [ ] curved Reference Line
-- [ ] lateral maneuver
-- [ ] static obstacle avoidance
-- [ ] corridor / optimized path visualization
+- [x] curved Reference Line
+- [x] lateral maneuver
+- [x] static obstacle avoidance
+- [x] corridor / optimized path visualization
 
 ### 14. Sampling vs Optimization Planner Benchmark
 在完全相同条件下比较两种 Path Planner：

@@ -241,7 +241,10 @@ def run_qp_solver_case() -> None:
         initial_d2l_ds2=0.0,
     )
 
-    solution = solve_qp(
+    (
+        solution,
+        objective_value,
+    ) = solve_qp(
         p_matrix=p_matrix,
         q_vector=q_vector,
         a_matrix=a_matrix,
@@ -250,7 +253,8 @@ def run_qp_solver_case() -> None:
     )
 
     initial_dl_ds = (
-        solution[1] - solution[0]
+        solution[1]
+        - solution[0]
     ) / resolution_m
 
     initial_d2l_ds2 = (
@@ -260,9 +264,9 @@ def run_qp_solver_case() -> None:
     ) / (resolution_m ** 2)
 
     s_values = (
-    12.0
-    + np.arange(num_points)
-    * resolution_m
+        12.0
+        + np.arange(num_points)
+        * resolution_m
     )
 
     trajectory = build_frenet_trajectory(
@@ -272,18 +276,17 @@ def run_qp_solver_case() -> None:
     )
 
     reference_line = ReferenceLine([
-    (0.0, 0.0),
-    (10.0, 0.0),
-    (20.0, 0.0),
-    (30.0, 0.0),
-    (40.0, 0.0),
+        (0.0, 0.0),
+        (10.0, 0.0),
+        (20.0, 0.0),
+        (30.0, 0.0),
+        (40.0, 0.0),
     ])
 
     path = frenet_trajectory_to_path(
         trajectory=trajectory,
         reference_line=reference_line,
     )
-
 
     assert np.isclose(
         solution[0],
@@ -304,16 +307,26 @@ def run_qp_solver_case() -> None:
     )
 
     assert np.all(
-        solution >= corridor_lower_bounds - 1e-5
+        solution
+        >= corridor_lower_bounds - 1e-5
     )
 
     assert np.all(
-        solution <= corridor_upper_bounds + 1e-5
+        solution
+        <= corridor_upper_bounds + 1e-5
     )
 
-    assert abs(solution[-1]) < 0.1
-    
-    assert len(trajectory.points) == num_points
+    assert abs(
+        solution[-1]
+    ) < 0.1
+
+    assert np.isfinite(
+        objective_value
+    )
+
+    assert len(
+        trajectory.points
+    ) == num_points
 
     assert np.isclose(
         trajectory.points[0].s,
@@ -343,7 +356,9 @@ def run_qp_solver_case() -> None:
         atol=1e-5,
     )
 
-    assert len(path) == num_points
+    assert len(
+        path
+    ) == num_points
 
     assert np.isclose(
         path[0].x,
@@ -386,18 +401,30 @@ def run_qp_solver_case() -> None:
         f"  start_dl_ds={initial_dl_ds:.4f}, "
         f"start_d2l_ds2={initial_d2l_ds2:.4f}"
     )
-    print("QP Frenet trajectory reconstruction passed.")
+    print(
+        f"  objective_value={objective_value:.4f}"
+    )
+
+    print(
+        "QP Frenet trajectory reconstruction passed."
+    )
     print(
         f"  start_s={trajectory.points[0].s:.2f}, "
         f"end_s={trajectory.points[-1].s:.2f}"
     )
-    print("QP Cartesian path conversion passed.")
+
     print(
-        f"  start_xy=({path[0].x:.2f}, {path[0].y:.2f}), "
-        f"end_xy=({path[-1].x:.2f}, {path[-1].y:.4f})"
+        "QP Cartesian path conversion passed."
     )
     print(
-        f"  Cartesian path length={path[-1].s:.2f}"
+        f"  start_xy="
+        f"({path[0].x:.2f}, {path[0].y:.2f}), "
+        f"end_xy="
+        f"({path[-1].x:.2f}, {path[-1].y:.4f})"
+    )
+    print(
+        f"  Cartesian path length="
+        f"{path[-1].s:.2f}"
     )
     print(
         f"  start_yaw={path[0].yaw:.4f}, "
@@ -444,7 +471,9 @@ def run_optimization_planner_nominal_case() -> None:
         initial_d2l_ds2=0.0,
     )
 
-    assert len(path) == num_points
+    assert len(
+        path
+    ) == num_points
 
     assert np.isclose(
         path[0].x,
@@ -464,14 +493,20 @@ def run_optimization_planner_nominal_case() -> None:
         atol=1e-5,
     )
 
-    assert abs(path[-1].y) < 0.1
+    assert abs(
+        path[-1].y
+    ) < 0.1
 
     assert path[-1].s >= 20.0
 
-    print("Optimization Planner nominal case passed.")
     print(
-        f"  start=({path[0].x:.2f}, {path[0].y:.2f}), "
-        f"end=({path[-1].x:.2f}, {path[-1].y:.4f})"
+        "Optimization Planner nominal case passed."
+    )
+    print(
+        f"  start="
+        f"({path[0].x:.2f}, {path[0].y:.2f}), "
+        f"end="
+        f"({path[-1].x:.2f}, {path[-1].y:.4f})"
     )
     print(
         f"  path_length={path[-1].s:.2f}, "

@@ -2,7 +2,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from src.common.types import VehicleParams
 from src.planning.reference_line import ReferenceLine
 from src.common.types import (
     StaticObstacle,
@@ -224,15 +223,15 @@ def build_obstacle_branch_corridors(
     LateralCorridor,
 ]:
     affected = (
-    (
-        base_corridor.s_values
-        >= obstacle.min_s - _CORRIDOR_EPSILON
+        (
+            base_corridor.s_values
+            >= obstacle.min_s - _CORRIDOR_EPSILON
+        )
+        & (
+            base_corridor.s_values
+            <= obstacle.max_s + _CORRIDOR_EPSILON
+        )
     )
-    & (
-        base_corridor.s_values
-        <= obstacle.max_s + _CORRIDOR_EPSILON
-    )
-)
 
     negative_lower_bounds = (
         base_corridor.lower_bounds.copy()

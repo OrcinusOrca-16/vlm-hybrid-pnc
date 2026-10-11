@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import numpy as np
 import osqp
 
@@ -13,6 +14,18 @@ from src.planning.frenet import (
 from src.planning.reference_line import (
     ReferenceLine,
 )
+from src.planning.lateral_corridor import (
+    LateralCorridor,
+    is_corridor_feasible,
+)
+
+
+@dataclass
+class OptimizationPathResult:
+    lateral_solution: np.ndarray
+    trajectory: FrenetTrajectory
+    path: list[PathPoint]
+    objective_value: float
 
 
 def build_difference_matrices(
@@ -223,7 +236,7 @@ def solve_qp(
     a_matrix: np.ndarray,
     lower_bounds: np.ndarray,
     upper_bounds: np.ndarray,
-) -> np.ndarray:
+) -> tuple[np.ndarray, float]:
     p_sparse = sparse.csc_matrix(
         np.triu(p_matrix)
     )
@@ -252,9 +265,9 @@ def solve_qp(
             f"QP solver failed: {result.info.status}"
         )
 
-    return np.asarray(
-        result.x,
-        dtype=float,
+    return (
+        np.asarray(result.x, dtype=float),
+        float(result.info.obj_val),
     )
 
 
@@ -353,7 +366,7 @@ def build_frenet_trajectory(
     )
 
 
-def plan_optimized_path(
+def solve_optimized_path(
     reference_line: ReferenceLine,
     s_values: np.ndarray,
     corridor_lower_bounds: np.ndarray,
@@ -363,11 +376,11 @@ def plan_optimized_path(
     initial_dl_ds: float,
     initial_d2l_ds2: float,
     lateral_reference_m: float = 0.0,
-    lateral_weight: float = 1.0,
+    lateral_weight: float = 0.2,
     first_derivative_weight: float = 1.0,
-    second_derivative_weight: float = 10.0,
-    third_derivative_weight: float = 100.0,
-) -> list[PathPoint]:
+    second_derivative_weight: float = 5.0,
+    third_derivative_weight: float = 20.0,
+) -> OptimizationPathResult:
     num_points = len(s_values)
 
     if num_points != len(corridor_lower_bounds):
@@ -403,7 +416,10 @@ def plan_optimized_path(
         initial_d2l_ds2=initial_d2l_ds2,
     )
 
-    lateral_solution = solve_qp(
+    (
+        lateral_solution,
+        objective_value,
+    ) = solve_qp(
         p_matrix=p_matrix,
         q_vector=q_vector,
         a_matrix=a_matrix,
@@ -417,7 +433,122 @@ def plan_optimized_path(
         resolution_m=resolution_m,
     )
 
-    return frenet_trajectory_to_path(
+    path = frenet_trajectory_to_path(
         trajectory=trajectory,
         reference_line=reference_line,
     )
+
+    return OptimizationPathResult(
+        lateral_solution=lateral_solution,
+        trajectory=trajectory,
+        path=path,
+        objective_value=objective_value,
+    )
+
+
+def solve_multi_corridor_path(
+    reference_line: ReferenceLine,
+    corridors: list[LateralCorridor],
+    resolution_m: float,
+    initial_l: float,
+    initial_dl_ds: float,
+    initial_d2l_ds2: float,
+    lateral_reference_m: float = 0.0,
+    lateral_weight: float = 0.2,
+    first_derivative_weight: float = 1.0,
+    second_derivative_weight: float = 5.0,
+    third_derivative_weight: float = 20.0,
+) -> OptimizationPathResult:
+    if len(corridors) == 0:
+        raise ValueError(
+            "At least one corridor is required."
+        )
+
+    reference_s_values = corridors[0].s_values
+
+    feasible_results = []
+
+    for corridor in corridors:
+        if (
+            corridor.s_values.shape
+            != reference_s_values.shape
+            or not np.allclose(
+                corridor.s_values,
+                reference_s_values,
+            )
+        ):
+            raise ValueError(
+                "All corridors must share the same s_values."
+            )
+
+        if not is_corridor_feasible(
+            corridor
+        ):
+            continue
+
+        try:
+            result = solve_optimized_path(
+                reference_line=reference_line,
+                s_values=corridor.s_values,
+                corridor_lower_bounds=corridor.lower_bounds,
+                corridor_upper_bounds=corridor.upper_bounds,
+                resolution_m=resolution_m,
+                initial_l=initial_l,
+                initial_dl_ds=initial_dl_ds,
+                initial_d2l_ds2=initial_d2l_ds2,
+                lateral_reference_m=lateral_reference_m,
+                lateral_weight=lateral_weight,
+                first_derivative_weight=first_derivative_weight,
+                second_derivative_weight=second_derivative_weight,
+                third_derivative_weight=third_derivative_weight,
+            )
+        except RuntimeError:
+            continue
+
+        feasible_results.append(
+            result
+        )
+
+    if len(feasible_results) == 0:
+        raise RuntimeError(
+            "No feasible optimization corridor found."
+        )
+
+    return min(
+        feasible_results,
+        key=lambda result: result.objective_value,
+    )
+
+
+def plan_optimized_path(
+    reference_line: ReferenceLine,
+    s_values: np.ndarray,
+    corridor_lower_bounds: np.ndarray,
+    corridor_upper_bounds: np.ndarray,
+    resolution_m: float,
+    initial_l: float,
+    initial_dl_ds: float,
+    initial_d2l_ds2: float,
+    lateral_reference_m: float = 0.0,
+    lateral_weight: float = 0.2,
+    first_derivative_weight: float = 1.0,
+    second_derivative_weight: float = 5.0,
+    third_derivative_weight: float = 20.0,
+) -> list[PathPoint]:
+    result = solve_optimized_path(
+        reference_line=reference_line,
+        s_values=s_values,
+        corridor_lower_bounds=corridor_lower_bounds,
+        corridor_upper_bounds=corridor_upper_bounds,
+        resolution_m=resolution_m,
+        initial_l=initial_l,
+        initial_dl_ds=initial_dl_ds,
+        initial_d2l_ds2=initial_d2l_ds2,
+        lateral_reference_m=lateral_reference_m,
+        lateral_weight=lateral_weight,
+        first_derivative_weight=first_derivative_weight,
+        second_derivative_weight=second_derivative_weight,
+        third_derivative_weight=third_derivative_weight,
+    )
+
+    return result.path
