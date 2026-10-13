@@ -7,15 +7,21 @@ from src.common.types import (
 def lateral_deviation_cost(
     trajectory: FrenetTrajectory,
 ) -> float:
-    """Cost for terminal lateral deviation from the reference line."""
+    """Mean squared lateral deviation from the reference line."""
 
     if not trajectory.points:
         raise ValueError(
             "trajectory must not be empty."
         )
 
-    return abs(
-        trajectory.points[-1].l
+    lateral_squared_sum = sum(
+        point.l ** 2
+        for point in trajectory.points
+    )
+
+    return (
+        lateral_squared_sum
+        / len(trajectory.points)
     )
 
 

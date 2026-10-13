@@ -1,18 +1,25 @@
 import math
 
+import numpy as np
+
 from src.common.types import (
     StaticObstacle,
     VehicleParams,
     VehicleState,
 )
-from src.planning.frenet import frenet_trajectories_to_paths
+from src.planning.frenet import (
+    frenet_trajectories_to_paths,
+)
 from src.planning.hard_constraints import (
     filter_feasible_candidates,
     obstacle_clearance,
 )
-from src.planning.reference_line import ReferenceLine
+from src.planning.reference_line import (
+    ReferenceLine,
+)
 from src.planning.sampling_planner import (
     generate_frenet_candidates_from_vehicle_state,
+    generate_returning_frenet_candidates,
 )
 from src.planning.soft_cost import (
     select_best_candidate,
@@ -198,6 +205,169 @@ def run_obstacle_case() -> None:
         f"best_l={best_end_l:.2f}, "
         f"length={best_path[-1].s:.2f}, "
         f"clearance={min_clearance:.2f}, "
+        f"cost={best_cost:.4f}"
+    )
+
+
+def run_returning_obstacle_case() -> None:
+    reference_line = build_reference_line()
+    vehicle_params = build_vehicle_params()
+
+    obstacle = StaticObstacle(
+        x=24.0,
+        y=1.0,
+        radius_m=0.5,
+    )
+
+    candidates = generate_returning_frenet_candidates(
+        start_s=12.0,
+        start_l=0.0,
+        start_dl_ds=0.0,
+        start_d2l_ds2=0.0,
+        bypass_lateral_positions=(
+            -1.5,
+            -1.0,
+            -0.5,
+            0.0,
+            0.5,
+            1.0,
+            1.5,
+        ),
+        bypass_lengths=(
+            10.0,
+            14.0,
+            18.0,
+        ),
+        total_length=28.0,
+        final_l=0.0,
+        resolution=0.5,
+    )
+
+    assert len(candidates) == 21
+
+    paths = frenet_trajectories_to_paths(
+        trajectories=candidates,
+        reference_line=reference_line,
+    )
+
+    feasible_candidates = filter_feasible_candidates(
+        trajectories=candidates,
+        paths=paths,
+        vehicle_params=vehicle_params,
+        obstacles=[obstacle],
+        max_curvature=1.0,
+        minimum_clearance_m=0.5,
+        min_l=-3.0,
+        max_l=3.0,
+    )
+
+    assert len(feasible_candidates) == 5
+
+    best_candidate = select_best_candidate(
+        feasible_candidates=feasible_candidates,
+        lateral_weight=LATERAL_WEIGHT,
+        curvature_weight=CURVATURE_WEIGHT,
+        length_weight=LENGTH_WEIGHT,
+    )
+
+    assert best_candidate is not None
+
+    best_trajectory, best_path = best_candidate
+
+    start_point = best_trajectory.points[0]
+    end_point = best_trajectory.points[-1]
+
+    l_values = np.array([
+        point.l
+        for point in best_trajectory.points
+    ])
+
+    minimum_clearance = min(
+        obstacle_clearance(
+            path_point=point,
+            vehicle_params=vehicle_params,
+            obstacle=obstacle,
+        )
+        for point in best_path
+    )
+
+    max_abs_curvature = max(
+        abs(point.curvature)
+        for point in best_path
+    )
+
+    best_cost = total_cost(
+        trajectory=best_trajectory,
+        path=best_path,
+        lateral_weight=LATERAL_WEIGHT,
+        curvature_weight=CURVATURE_WEIGHT,
+        length_weight=LENGTH_WEIGHT,
+    )
+
+    horizon = (
+        end_point.s
+        - start_point.s
+    )
+
+    assert math.isclose(
+        start_point.l,
+        0.0,
+        abs_tol=1e-9,
+    )
+
+    assert math.isclose(
+        end_point.l,
+        0.0,
+        abs_tol=1e-9,
+    )
+
+    assert math.isclose(
+        end_point.dl_ds,
+        0.0,
+        abs_tol=1e-9,
+    )
+
+    assert math.isclose(
+        end_point.d2l_ds2,
+        0.0,
+        abs_tol=1e-9,
+    )
+
+    assert math.isclose(
+        horizon,
+        28.0,
+        abs_tol=1e-9,
+    )
+
+    assert math.isclose(
+        np.min(l_values),
+        -1.0,
+        abs_tol=1e-9,
+    )
+
+    assert np.max(l_values) <= 1e-9
+
+    assert minimum_clearance > 0.5
+
+    assert max_abs_curvature < 1.0
+
+    print("Returning obstacle case passed.")
+    print(
+        f"  candidates={len(candidates)}, "
+        f"feasible={len(feasible_candidates)}"
+    )
+    print(
+        f"  start_l={start_point.l:.2f}, "
+        f"min_l={np.min(l_values):.2f}, "
+        f"end_l={end_point.l:.2f}"
+    )
+    print(
+        f"  horizon={horizon:.2f}, "
+        f"path_length={best_path[-1].s:.2f}"
+    )
+    print(
+        f"  clearance={minimum_clearance:.4f}, "
+        f"max_curvature={max_abs_curvature:.4f}, "
         f"cost={best_cost:.4f}"
     )
 
@@ -413,11 +583,14 @@ def run_lateral_maneuver_case() -> None:
 def main() -> None:
     run_nominal_case()
     run_obstacle_case()
+    run_returning_obstacle_case()
     run_curved_reference_line_case()
     run_lateral_maneuver_case()
 
     print()
-    print("All Sampling Planner validation cases passed.")
+    print(
+        "All Sampling Planner validation cases passed."
+    )
 
 
 if __name__ == "__main__":
