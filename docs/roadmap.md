@@ -270,17 +270,252 @@
 - [x] corridor / optimized path visualization
 
 ### 14. Sampling vs Optimization Planner Benchmark
-在完全相同条件下比较两种 Path Planner：
-- [ ] 相同 Reference Line
-- [ ] 相同 obstacle
-- [ ] 相同 road boundary
-- [ ] 相同 vehicle geometry
-- [ ] 相同 controller
-- [ ] path quality
-- [ ] curvature / smoothness
-- [ ] obstacle clearance
-- [ ] success rate
-- [ ] computation time
+
+在固定 Behavior intent 下，对 Sampling-based Planner 和
+Optimization-based Planner 进行公平、可重复的统一 Benchmark。
+
+Benchmark 固定 maneuver intent：
+- 绕开静态障碍物
+- 最终回到 Reference Line
+- 不比较 Behavior Planner 本身
+- 重点比较离散 Sampling 与连续 Optimization 的差异
+
+#### 14.0 Freeze Pre-Benchmark Baseline
+- [x] 完成 Sampling Planner 基础实现
+- [x] 完成两段式 bypass-and-return Sampling
+- [x] 完成 Sampling hard-constraint validation
+- [x] 完成 Sampling visualization
+- [x] 完成 Optimization Planner
+- [x] 完成 obstacle corridor branching
+- [x] 完成 multi-corridor QP solve
+- [x] 完成 Optimization validation / visualization
+- [x] 冻结 pre-benchmark baseline commits
+
+#### 14.1 Centralized Configuration
+将 Planning / Benchmark 使用的可配置参数集中管理，
+避免 planner / validation / benchmark scripts 中散落 hardcoded 参数。
+
+- [x] 建立 `src/config/` package
+- [x] 集中 Vehicle geometry 参数
+- [x] 集中 Road / planning constraint 参数
+- [x] 集中 Sampling Planner 参数
+- [x] 集中 Optimization Planner 参数
+- [x] 集中 corridor / obstacle inflation 参数
+- [x] 集中 OSQP / numerical tolerance 参数
+- [ ] 集中 Benchmark runtime 参数
+- [x] Planner source 不再包含 tuning parameter hardcode
+- [ ] Benchmark / visualization 统一引用 config
+- [x] 保留 validation oracle / assertion tolerance 作为 test-local 常量
+- [x] 重新运行全部 Sampling / Optimization regression tests
+- [x] 确认 config refactor 不改变原有数值结果
+
+#### 14.2 Matched Planner Formulation
+让两个 Planner 尽量解决相同的几何优化问题，
+只保留 Sampling 与 continuous optimization 的核心求解方式差异。
+
+共同 soft objective：
+
+`J = w_l J_l
+   + w_dl J_dl
+   + w_d2l J_d2l
+   + w_d3l J_d3l
+   + w_terminal_l J_terminal_l
+   + w_terminal_dl J_terminal_dl`
+
+- [ ] `l`：mean squared lateral deviation
+- [ ] `l'`：mean squared lateral slope / heading-related cost
+- [ ] `l''`：mean squared curvature-related cost
+- [ ] `l'''`：mean squared curvature-change / smoothness cost
+- [ ] terminal `l`：planning horizon 末端 lateral error
+- [ ] terminal `l'`：planning horizon 末端 heading / slope error
+- [ ] 使用 mean-square normalization，降低 discretization 点数变化对 cost scale 的影响
+- [ ] matched benchmark 中移除 Sampling-only path-length/progress cost
+
+#### 14.3 Generalize Returning Sampling
+使 terminal objective 在 Sampling 中真正参与 candidate selection，
+而不是所有 candidate 固定 terminal state。
+
+- [ ] terminal `l` 支持多个 sampled target
+- [ ] terminal `l'` 支持多个 sampled target
+- [ ] 保留 terminal `l''` 的合理边界条件
+- [ ] 保证两段 quintic junction 的 `l / l' / l''` 连续
+- [ ] 保证所有 candidate 使用相同 planning horizon
+- [ ] 验证 candidate 数量及 terminal-state coverage
+- [ ] 验证原 bypass-and-return behavior 仍可生成
+
+#### 14.4 Matched Optimization Objective
+将相同六项 geometric objective 转换为 Optimization Planner 的 QP。
+
+- [ ] `l` cost → identity quadratic term
+- [ ] `l'` cost → `D1^T D1`
+- [ ] `l''` cost → `D2^T D2`
+- [ ] `l'''` cost → `D3^T D3`
+- [ ] terminal `l` cost → terminal quadratic term
+- [ ] terminal `l'` cost → terminal D1 quadratic term
+- [ ] 构造统一 `P / q`
+- [ ] 验证 Sampling / Optimization 各 cost 项物理意义一致
+- [ ] 验证 QP 保持 convex / PSD
+
+#### 14.5 Matched Hard Constraints
+两种 Planner 使用相同的最终物理可行性标准。
+
+共同 physical requirements：
+- road boundary
+- minimum obstacle clearance
+- maximum Cartesian curvature
+- initial-state consistency
+
+Sampling：
+- [ ] 保留 exact Cartesian curvature pruning
+- [ ] 保留 exact vehicle-footprint obstacle clearance
+- [ ] 保留 road-boundary pruning
+
+Optimization：
+- [ ] 保留 road / obstacle convex corridor
+- [ ] 加入 `D2` curvature-proxy hard bound
+- [ ] 保持 QP convex
+- [ ] QP 求解后转换为 Cartesian
+- [ ] 使用与 Sampling 相同的 exact physical validator
+
+统一最终 validation：
+- [ ] exact road-boundary check
+- [ ] exact footprint-to-obstacle clearance
+- [ ] exact Cartesian max curvature
+- [ ] 任一物理约束失败则 planner result 判定为 failure
+
+#### 14.6 Unified Benchmark Interface
+建立与 planner 类型无关的 Benchmark 输出接口。
+
+- [ ] 定义统一 `PlannerBenchmarkResult`
+- [ ] planner name
+- [ ] success / failure
+- [ ] Frenet trajectory
+- [ ] Cartesian path
+- [ ] planning time
+- [ ] failure reason
+- [ ] Sampling adapter
+- [ ] Optimization adapter
+
+#### 14.7 Common Benchmark Metrics
+禁止直接比较两个 Planner 内部 objective value，
+统一使用 planner-independent physical metrics。
+
+- [ ] planning success
+- [ ] terminal lateral error
+- [ ] terminal slope error
+- [ ] RMS lateral deviation
+- [ ] Cartesian path length
+- [ ] minimum exact obstacle clearance
+- [ ] maximum absolute Cartesian curvature
+- [ ] RMS Cartesian curvature
+- [ ] RMS curvature rate
+- [ ] planning computation time
+
+#### 14.8 Canonical Single-Scenario Benchmark
+先使用一个固定 static-obstacle case 验证完整 Benchmark pipeline。
+
+统一：
+- [ ] Reference Line
+- [ ] initial VehicleState
+- [ ] vehicle geometry
+- [ ] road boundary
+- [ ] obstacle geometry
+- [ ] minimum clearance
+- [ ] max curvature
+- [ ] planning horizon
+- [ ] discretization resolution
+- [ ] maneuver intent
+
+输出：
+- [ ] Sampling metrics
+- [ ] Optimization metrics
+- [ ] unified comparison table
+- [ ] 确认 metric evaluator 数值正确
+
+#### 14.9 Benchmark Visualization
+只显示共同物理世界和最终 planner output，
+不混入各 planner 内部的 obstacle approximation。
+
+- [ ] Cartesian overlay：Sampling vs Optimization
+- [ ] Frenet `s-l` overlay
+- [ ] Reference Line
+- [ ] road boundary
+- [ ] original obstacle
+- [ ] Sampling best path
+- [ ] Optimization best path
+
+#### 14.10 Runtime Benchmark
+统一完整 planner pipeline 的计时范围。
+
+- [ ] 定义 warm-up runs
+- [ ] 定义 repeated runs
+- [ ] Sampling 计时包含 candidate generation / pruning / selection
+- [ ] Optimization 计时包含 corridor / QP build / solve / reconstruction
+- [ ] mean runtime
+- [ ] median runtime
+- [ ] P95 runtime
+- [ ] min / max runtime
+
+#### 14.11 Multi-Scenario & Stress Benchmark
+在 canonical case 正确后扩展测试覆盖。
+
+- [ ] nominal straight
+- [ ] lateral recovery
+- [ ] static obstacle
+- [ ] mirrored obstacle
+- [ ] curved Reference Line
+- [ ] curved Reference Line + obstacle
+- [ ] narrower road
+- [ ] obstacle lateral-position sweep
+- [ ] obstacle longitudinal-position sweep
+- [ ] road-width sweep
+- [ ] 统计 planning success rate
+- [ ] 记录 failure cases
+
+#### 14.12 Planner Tuning
+Baseline Benchmark 完成后，再分别优化两个 Planner。
+
+Sampling tuning：
+- [ ] `l / l' / l'' / l'''` weights
+- [ ] terminal `l / l'` weights
+- [ ] lateral sampling interval
+- [ ] bypass lateral range
+- [ ] bypass-length sampling
+- [ ] terminal-state sampling density
+- [ ] candidate count vs runtime
+
+Optimization tuning：
+- [ ] `l / l' / l'' / l'''` weights
+- [ ] terminal `l / l'` weights
+- [ ] longitudinal discretization resolution
+- [ ] curvature-proxy bound
+- [ ] corridor parameters
+- [ ] solver tolerance vs runtime
+
+Tuning methodology：
+- [ ] 建立独立 tuning scenario set
+- [ ] 两个 Planner 分别调到合理最佳性能
+- [ ] 冻结 tuned configs
+- [ ] 不使用 final evaluation scenarios 调参
+
+#### 14.13 Final Planner Evaluation
+使用冻结后的 tuned configs，
+在未参与调参的 evaluation scenario set 上重新比较。
+
+- [ ] Sampling tuned result
+- [ ] Optimization tuned result
+- [ ] path quality comparison
+- [ ] smoothness comparison
+- [ ] safety margin comparison
+- [ ] success-rate comparison
+- [ ] computation-time comparison
+- [ ] 分析 Sampling density trade-off
+- [ ] 分析 convex Optimization approximation trade-off
+- [ ] 总结两种 Planner 的优缺点
+- [ ] 保存 CSV / figures / benchmark summary
+
+后续 Phase 15 / 16 再进行 Curvature-aware MPC 和
+same-controller closed-loop Planning & Control Benchmark。
 
 ### 15. Curvature-aware MPC + Systematic Tuning
 Phase 1 MPC 保留为冻结 Baseline。

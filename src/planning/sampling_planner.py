@@ -3,25 +3,12 @@ from src.common.types import (
     FrenetTrajectoryPoint,
     VehicleState,
 )
+from src.config.planning import (
+    DEFAULT_SAMPLING_PLANNER_CONFIG,
+)
 from src.planning.quintic_polynomial import QuinticPolynomial
 from src.planning.frenet import vehicle_state_to_frenet
 from src.planning.reference_line import ReferenceLine
-
-_SAMPLING_EPSILON = 1e-9
-DEFAULT_TARGET_LATERAL_POSITIONS = (
-    -1.5,
-    -0.75,
-    0.0,
-    0.75,
-    1.5,
-)
-
-DEFAULT_TARGET_LENGTHS = (
-    10.0,
-    20.0,
-)
-
-DEFAULT_SAMPLING_RESOLUTION = 0.5
 
 
 def sample_quintic_candidate(
@@ -39,7 +26,11 @@ def sample_quintic_candidate(
     points = []
     delta_s = 0.0
 
-    while delta_s < curve.length - _SAMPLING_EPSILON:
+    while (
+        delta_s
+        < curve.length
+        - DEFAULT_SAMPLING_PLANNER_CONFIG.sampling_epsilon_m
+    ):
         points.append(
             FrenetTrajectoryPoint(
                 s=start_s + delta_s,
@@ -75,8 +66,14 @@ def generate_returning_frenet_candidate(
     bypass_l: float,
     bypass_length: float,
     return_length: float,
-    final_l: float = 0.0,
-    resolution: float = DEFAULT_SAMPLING_RESOLUTION,
+    final_l: float = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .returning_final_l_m
+    ),
+    resolution: float = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .resolution_m
+    ),
 ) -> FrenetTrajectory:
     """Generate a two-stage candidate that bypasses and returns laterally."""
 
@@ -141,11 +138,32 @@ def generate_returning_frenet_candidates(
     start_l: float,
     start_dl_ds: float,
     start_d2l_ds2: float,
-    bypass_lateral_positions: tuple[float, ...],
-    bypass_lengths: tuple[float, ...],
-    total_length: float,
-    final_l: float = 0.0,
-    resolution: float = DEFAULT_SAMPLING_RESOLUTION,
+    bypass_lateral_positions: tuple[
+        float,
+        ...,
+    ] = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .returning_bypass_lateral_positions_m
+    ),
+    bypass_lengths: tuple[
+        float,
+        ...,
+    ] = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .returning_bypass_lengths_m
+    ),
+    total_length: float = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .returning_total_length_m
+    ),
+    final_l: float = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .returning_final_l_m
+    ),
+    resolution: float = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .resolution_m
+    ),
 ) -> list[FrenetTrajectory]:
     """Generate multiple two-stage bypass-and-return candidates."""
 
@@ -190,11 +208,32 @@ def generate_returning_frenet_candidates(
 def generate_returning_frenet_candidates_from_vehicle_state(
     vehicle_state: VehicleState,
     reference_line: ReferenceLine,
-    bypass_lateral_positions: tuple[float, ...],
-    bypass_lengths: tuple[float, ...],
-    total_length: float,
-    final_l: float = 0.0,
-    resolution: float = DEFAULT_SAMPLING_RESOLUTION,
+    bypass_lateral_positions: tuple[
+        float,
+        ...,
+    ] = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .returning_bypass_lateral_positions_m
+    ),
+    bypass_lengths: tuple[
+        float,
+        ...,
+    ] = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .returning_bypass_lengths_m
+    ),
+    total_length: float = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .returning_total_length_m
+    ),
+    final_l: float = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .returning_final_l_m
+    ),
+    resolution: float = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .resolution_m
+    ),
 ) -> list[FrenetTrajectory]:
     """Generate bypass-and-return candidates from the ego vehicle state."""
 
@@ -221,9 +260,24 @@ def generate_frenet_candidates(
     start_l: float,
     start_dl_ds: float,
     start_d2l_ds2: float,
-    target_lateral_positions: tuple[float, ...] = DEFAULT_TARGET_LATERAL_POSITIONS,
-    target_lengths: tuple[float, ...] = DEFAULT_TARGET_LENGTHS,
-    resolution: float = DEFAULT_SAMPLING_RESOLUTION,
+    target_lateral_positions: tuple[
+        float,
+        ...,
+    ] = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .target_lateral_positions_m
+    ),
+    target_lengths: tuple[
+        float,
+        ...,
+    ] = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .target_lengths_m
+    ),
+    resolution: float = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .resolution_m
+    ),
 ) -> list[FrenetTrajectory]:
     """Generate multiple Frenet candidate paths."""
 
@@ -255,9 +309,24 @@ def generate_frenet_candidates(
 def generate_frenet_candidates_from_vehicle_state(
     vehicle_state: VehicleState,
     reference_line: ReferenceLine,
-    target_lateral_positions: tuple[float, ...] = DEFAULT_TARGET_LATERAL_POSITIONS,
-    target_lengths: tuple[float, ...] = DEFAULT_TARGET_LENGTHS,
-    resolution: float = DEFAULT_SAMPLING_RESOLUTION,
+    target_lateral_positions: tuple[
+        float,
+        ...,
+    ] = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .target_lateral_positions_m
+    ),
+    target_lengths: tuple[
+        float,
+        ...,
+    ] = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .target_lengths_m
+    ),
+    resolution: float = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .resolution_m
+    ),
 ) -> list[FrenetTrajectory]:
     """Generate Frenet candidate paths from the ego vehicle state."""
 

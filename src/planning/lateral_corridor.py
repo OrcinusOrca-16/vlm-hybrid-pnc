@@ -2,15 +2,16 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from src.planning.reference_line import ReferenceLine
 from src.common.types import (
     StaticObstacle,
     VehicleParams,
 )
+from src.config.planning import (
+    DEFAULT_OPTIMIZATION_PLANNER_CONFIG,
+)
+from src.planning.reference_line import ReferenceLine
 from src.planning.frenet import xy_to_sl
 
-
-_CORRIDOR_EPSILON = 1e-2
 
 @dataclass
 class LateralCorridor:
@@ -18,11 +19,13 @@ class LateralCorridor:
     lower_bounds: np.ndarray
     upper_bounds: np.ndarray
 
+
 @dataclass
 class FrenetObstacle:
     s: float
     l: float
     radius_m: float
+
 
 @dataclass
 class InflatedFrenetObstacle:
@@ -62,7 +65,8 @@ def discretize_planning_horizon(
         np.floor(
             (end_s - start_s)
             / resolution_m
-            + 1e-9
+            + DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+            .horizon_discretization_epsilon_m
         )
     )
 
@@ -149,7 +153,10 @@ def inflate_frenet_obstacle(
     obstacle: FrenetObstacle,
     vehicle_params: VehicleParams,
     minimum_clearance_m: float,
-    safety_margin_m: float = 1e-2,
+    safety_margin_m: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .obstacle_inflation_safety_margin_m
+    ),
 ) -> InflatedFrenetObstacle:
     if minimum_clearance_m < 0.0:
         raise ValueError(
@@ -222,20 +229,26 @@ def build_obstacle_branch_corridors(
     LateralCorridor,
     LateralCorridor,
 ]:
+    corridor_epsilon = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .corridor_affected_epsilon_m
+    )
+
     affected = (
         (
             base_corridor.s_values
-            >= obstacle.min_s - _CORRIDOR_EPSILON
+            >= obstacle.min_s - corridor_epsilon
         )
         & (
             base_corridor.s_values
-            <= obstacle.max_s + _CORRIDOR_EPSILON
+            <= obstacle.max_s + corridor_epsilon
         )
     )
 
     negative_lower_bounds = (
         base_corridor.lower_bounds.copy()
     )
+
     negative_upper_bounds = (
         base_corridor.upper_bounds.copy()
     )
@@ -248,6 +261,7 @@ def build_obstacle_branch_corridors(
     positive_lower_bounds = (
         base_corridor.lower_bounds.copy()
     )
+
     positive_upper_bounds = (
         base_corridor.upper_bounds.copy()
     )

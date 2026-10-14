@@ -1,12 +1,16 @@
 from dataclasses import dataclass
+
 import numpy as np
 import osqp
-
 from scipy import sparse
+
 from src.common.types import (
     FrenetTrajectory,
     FrenetTrajectoryPoint,
     PathPoint,
+)
+from src.config.planning import (
+    DEFAULT_OPTIMIZATION_PLANNER_CONFIG,
 )
 from src.planning.frenet import (
     frenet_trajectory_to_path,
@@ -236,6 +240,18 @@ def solve_qp(
     a_matrix: np.ndarray,
     lower_bounds: np.ndarray,
     upper_bounds: np.ndarray,
+    verbose: bool = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_verbose
+    ),
+    eps_abs: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_eps_abs
+    ),
+    eps_rel: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_eps_rel
+    ),
 ) -> tuple[np.ndarray, float]:
     p_sparse = sparse.csc_matrix(
         np.triu(p_matrix)
@@ -253,9 +269,9 @@ def solve_qp(
         A=a_sparse,
         l=lower_bounds,
         u=upper_bounds,
-        verbose=False,
-        eps_abs=1e-6,
-        eps_rel=1e-6,
+        verbose=verbose,
+        eps_abs=eps_abs,
+        eps_rel=eps_rel,
     )
 
     result = solver.solve()
@@ -375,11 +391,38 @@ def solve_optimized_path(
     initial_l: float,
     initial_dl_ds: float,
     initial_d2l_ds2: float,
-    lateral_reference_m: float = 0.0,
-    lateral_weight: float = 0.2,
-    first_derivative_weight: float = 1.0,
-    second_derivative_weight: float = 5.0,
-    third_derivative_weight: float = 20.0,
+    lateral_reference_m: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .lateral_reference_m
+    ),
+    lateral_weight: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .lateral_weight
+    ),
+    first_derivative_weight: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .first_derivative_weight
+    ),
+    second_derivative_weight: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .second_derivative_weight
+    ),
+    third_derivative_weight: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .third_derivative_weight
+    ),
+    osqp_verbose: bool = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_verbose
+    ),
+    osqp_eps_abs: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_eps_abs
+    ),
+    osqp_eps_rel: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_eps_rel
+    ),
 ) -> OptimizationPathResult:
     num_points = len(s_values)
 
@@ -425,6 +468,9 @@ def solve_optimized_path(
         a_matrix=a_matrix,
         lower_bounds=lower_bounds,
         upper_bounds=upper_bounds,
+        verbose=osqp_verbose,
+        eps_abs=osqp_eps_abs,
+        eps_rel=osqp_eps_rel,
     )
 
     trajectory = build_frenet_trajectory(
@@ -453,11 +499,38 @@ def solve_multi_corridor_path(
     initial_l: float,
     initial_dl_ds: float,
     initial_d2l_ds2: float,
-    lateral_reference_m: float = 0.0,
-    lateral_weight: float = 0.2,
-    first_derivative_weight: float = 1.0,
-    second_derivative_weight: float = 5.0,
-    third_derivative_weight: float = 20.0,
+    lateral_reference_m: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .lateral_reference_m
+    ),
+    lateral_weight: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .lateral_weight
+    ),
+    first_derivative_weight: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .first_derivative_weight
+    ),
+    second_derivative_weight: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .second_derivative_weight
+    ),
+    third_derivative_weight: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .third_derivative_weight
+    ),
+    osqp_verbose: bool = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_verbose
+    ),
+    osqp_eps_abs: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_eps_abs
+    ),
+    osqp_eps_rel: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_eps_rel
+    ),
 ) -> OptimizationPathResult:
     if len(corridors) == 0:
         raise ValueError(
@@ -501,6 +574,9 @@ def solve_multi_corridor_path(
                 first_derivative_weight=first_derivative_weight,
                 second_derivative_weight=second_derivative_weight,
                 third_derivative_weight=third_derivative_weight,
+                osqp_verbose=osqp_verbose,
+                osqp_eps_abs=osqp_eps_abs,
+                osqp_eps_rel=osqp_eps_rel,
             )
         except RuntimeError:
             continue
@@ -529,11 +605,38 @@ def plan_optimized_path(
     initial_l: float,
     initial_dl_ds: float,
     initial_d2l_ds2: float,
-    lateral_reference_m: float = 0.0,
-    lateral_weight: float = 0.2,
-    first_derivative_weight: float = 1.0,
-    second_derivative_weight: float = 5.0,
-    third_derivative_weight: float = 20.0,
+    lateral_reference_m: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .lateral_reference_m
+    ),
+    lateral_weight: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .lateral_weight
+    ),
+    first_derivative_weight: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .first_derivative_weight
+    ),
+    second_derivative_weight: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .second_derivative_weight
+    ),
+    third_derivative_weight: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .third_derivative_weight
+    ),
+    osqp_verbose: bool = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_verbose
+    ),
+    osqp_eps_abs: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_eps_abs
+    ),
+    osqp_eps_rel: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_eps_rel
+    ),
 ) -> list[PathPoint]:
     result = solve_optimized_path(
         reference_line=reference_line,
@@ -549,6 +652,9 @@ def plan_optimized_path(
         first_derivative_weight=first_derivative_weight,
         second_derivative_weight=second_derivative_weight,
         third_derivative_weight=third_derivative_weight,
+        osqp_verbose=osqp_verbose,
+        osqp_eps_abs=osqp_eps_abs,
+        osqp_eps_rel=osqp_eps_rel,
     )
 
     return result.path
