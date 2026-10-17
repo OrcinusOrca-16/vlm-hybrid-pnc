@@ -8,6 +8,8 @@ from src.common.types import (
     FrenetTrajectory,
     FrenetTrajectoryPoint,
     PathPoint,
+    StaticObstacle,
+    VehicleParams,
 )
 from src.config.planning import (
     DEFAULT_OPTIMIZATION_PLANNER_CONFIG,
@@ -21,6 +23,13 @@ from src.planning.reference_line import (
 from src.planning.lateral_corridor import (
     LateralCorridor,
     is_corridor_feasible,
+)
+from src.planning.path_objective import (
+    PathObjectiveQP,
+    build_path_objective_qp,
+)
+from src.planning.hard_constraints import (
+    is_physical_path_feasible,
 )
 
 
@@ -154,6 +163,40 @@ def build_qp_objective(
     )
 
 
+def build_matched_qp_objective(
+    num_points: int,
+    resolution_m: float,
+    lateral_reference_m: float,
+    terminal_lateral_target_m: float,
+    terminal_first_derivative_target: float,
+    lateral_weight: float,
+    first_derivative_weight: float,
+    second_derivative_weight: float,
+    third_derivative_weight: float,
+    terminal_lateral_weight: float,
+    terminal_first_derivative_weight: float,
+) -> PathObjectiveQP:
+    """Build the matched QP objective from the canonical path objective."""
+
+    return build_path_objective_qp(
+        num_points=num_points,
+        resolution_m=resolution_m,
+        lateral_reference_m=lateral_reference_m,
+        terminal_lateral_target_m=terminal_lateral_target_m,
+        terminal_first_derivative_target=(
+            terminal_first_derivative_target
+        ),
+        lateral_weight=lateral_weight,
+        first_derivative_weight=first_derivative_weight,
+        second_derivative_weight=second_derivative_weight,
+        third_derivative_weight=third_derivative_weight,
+        terminal_lateral_weight=terminal_lateral_weight,
+        terminal_first_derivative_weight=(
+            terminal_first_derivative_weight
+        ),
+    )
+
+
 def build_qp_constraints(
     corridor_lower_bounds: np.ndarray,
     corridor_upper_bounds: np.ndarray,
@@ -231,6 +274,80 @@ def build_qp_constraints(
         a_matrix,
         lower_constraint_bounds,
         upper_constraint_bounds,
+    )
+
+
+def build_matched_qp_constraints(
+    corridor_lower_bounds: np.ndarray,
+    corridor_upper_bounds: np.ndarray,
+    resolution_m: float,
+    initial_l: float,
+    initial_dl_ds: float,
+    initial_d2l_ds2: float,
+    max_second_derivative_abs: float,
+) -> tuple[
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+]:
+    """Build matched QP constraints including the D2 curvature proxy."""
+
+    if max_second_derivative_abs <= 0.0:
+        raise ValueError(
+            "max_second_derivative_abs must be positive."
+        )
+
+    (
+        base_a_matrix,
+        base_lower_bounds,
+        base_upper_bounds,
+    ) = build_qp_constraints(
+        corridor_lower_bounds=corridor_lower_bounds,
+        corridor_upper_bounds=corridor_upper_bounds,
+        resolution_m=resolution_m,
+        initial_l=initial_l,
+        initial_dl_ds=initial_dl_ds,
+        initial_d2l_ds2=initial_d2l_ds2,
+    )
+
+    num_points = len(
+        corridor_lower_bounds
+    )
+
+    _, d2, _ = build_difference_matrices(
+        num_points=num_points,
+        resolution_m=resolution_m,
+    )
+
+    a_matrix = np.vstack([
+        base_a_matrix,
+        d2,
+    ])
+
+    curvature_proxy_lower_bounds = np.full(
+        d2.shape[0],
+        -max_second_derivative_abs,
+    )
+
+    curvature_proxy_upper_bounds = np.full(
+        d2.shape[0],
+        max_second_derivative_abs,
+    )
+
+    lower_bounds = np.concatenate([
+        base_lower_bounds,
+        curvature_proxy_lower_bounds,
+    ])
+
+    upper_bounds = np.concatenate([
+        base_upper_bounds,
+        curvature_proxy_upper_bounds,
+    ])
+
+    return (
+        a_matrix,
+        lower_bounds,
+        upper_bounds,
     )
 
 
@@ -492,6 +609,229 @@ def solve_optimized_path(
     )
 
 
+def solve_matched_optimized_path(
+    reference_line: ReferenceLine,
+    s_values: np.ndarray,
+    corridor_lower_bounds: np.ndarray,
+    corridor_upper_bounds: np.ndarray,
+    resolution_m: float,
+    initial_l: float,
+    initial_dl_ds: float,
+    initial_d2l_ds2: float,
+    lateral_reference_m: float,
+    terminal_lateral_target_m: float,
+    terminal_first_derivative_target: float,
+    lateral_weight: float,
+    first_derivative_weight: float,
+    second_derivative_weight: float,
+    third_derivative_weight: float,
+    terminal_lateral_weight: float,
+    terminal_first_derivative_weight: float,
+    max_second_derivative_abs: float,
+    osqp_verbose: bool = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_verbose
+    ),
+    osqp_eps_abs: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_eps_abs
+    ),
+    osqp_eps_rel: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_eps_rel
+    ),
+) -> OptimizationPathResult:
+    """Solve one corridor using the canonical matched objective."""
+
+    num_points = len(s_values)
+
+    if num_points != len(corridor_lower_bounds):
+        raise ValueError(
+            "s_values and corridor bounds must have the same length."
+        )
+
+    if num_points != len(corridor_upper_bounds):
+        raise ValueError(
+            "s_values and corridor bounds must have the same length."
+        )
+
+    qp_objective = build_matched_qp_objective(
+        num_points=num_points,
+        resolution_m=resolution_m,
+        lateral_reference_m=lateral_reference_m,
+        terminal_lateral_target_m=terminal_lateral_target_m,
+        terminal_first_derivative_target=(
+            terminal_first_derivative_target
+        ),
+        lateral_weight=lateral_weight,
+        first_derivative_weight=first_derivative_weight,
+        second_derivative_weight=second_derivative_weight,
+        third_derivative_weight=third_derivative_weight,
+        terminal_lateral_weight=terminal_lateral_weight,
+        terminal_first_derivative_weight=(
+            terminal_first_derivative_weight
+        ),
+    )
+
+    (
+        a_matrix,
+        lower_bounds,
+        upper_bounds,
+    ) = build_matched_qp_constraints(
+        corridor_lower_bounds=corridor_lower_bounds,
+        corridor_upper_bounds=corridor_upper_bounds,
+        resolution_m=resolution_m,
+        initial_l=initial_l,
+        initial_dl_ds=initial_dl_ds,
+        initial_d2l_ds2=initial_d2l_ds2,
+        max_second_derivative_abs=max_second_derivative_abs,
+    )
+
+    (
+        lateral_solution,
+        solver_objective_value,
+    ) = solve_qp(
+        p_matrix=qp_objective.p,
+        q_vector=qp_objective.q,
+        a_matrix=a_matrix,
+        lower_bounds=lower_bounds,
+        upper_bounds=upper_bounds,
+        verbose=osqp_verbose,
+        eps_abs=osqp_eps_abs,
+        eps_rel=osqp_eps_rel,
+    )
+
+    matched_objective_value = (
+        solver_objective_value
+        + qp_objective.constant
+    )
+
+    trajectory = build_frenet_trajectory(
+        s_values=s_values,
+        lateral_solution=lateral_solution,
+        resolution_m=resolution_m,
+    )
+
+    path = frenet_trajectory_to_path(
+        trajectory=trajectory,
+        reference_line=reference_line,
+    )
+
+    return OptimizationPathResult(
+        lateral_solution=lateral_solution,
+        trajectory=trajectory,
+        path=path,
+        objective_value=matched_objective_value,
+    )
+
+
+def validate_optimization_result_physical(
+    result: OptimizationPathResult,
+    vehicle_params: VehicleParams,
+    obstacles: list[StaticObstacle],
+    max_curvature: float,
+    minimum_clearance_m: float,
+    road_min_l: float,
+    road_max_l: float,
+) -> OptimizationPathResult:
+    """Reject an optimized path that fails the common exact validator."""
+
+    if not is_physical_path_feasible(
+        trajectory=result.trajectory,
+        path=result.path,
+        vehicle_params=vehicle_params,
+        obstacles=obstacles,
+        max_curvature=max_curvature,
+        minimum_clearance_m=minimum_clearance_m,
+        min_l=road_min_l,
+        max_l=road_max_l,
+    ):
+        raise RuntimeError(
+            "Optimization result failed exact physical validation."
+        )
+
+    return result
+
+
+def plan_matched_optimized_path(
+    reference_line: ReferenceLine,
+    s_values: np.ndarray,
+    corridor_lower_bounds: np.ndarray,
+    corridor_upper_bounds: np.ndarray,
+    resolution_m: float,
+    initial_l: float,
+    initial_dl_ds: float,
+    initial_d2l_ds2: float,
+    lateral_reference_m: float,
+    terminal_lateral_target_m: float,
+    terminal_first_derivative_target: float,
+    lateral_weight: float,
+    first_derivative_weight: float,
+    second_derivative_weight: float,
+    third_derivative_weight: float,
+    terminal_lateral_weight: float,
+    terminal_first_derivative_weight: float,
+    max_second_derivative_abs: float,
+    vehicle_params: VehicleParams,
+    obstacles: list[StaticObstacle],
+    max_curvature: float,
+    minimum_clearance_m: float,
+    road_min_l: float,
+    road_max_l: float,
+    osqp_verbose: bool = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_verbose
+    ),
+    osqp_eps_abs: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_eps_abs
+    ),
+    osqp_eps_rel: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_eps_rel
+    ),
+) -> OptimizationPathResult:
+    """Solve and apply the common exact physical validator."""
+
+    result = solve_matched_optimized_path(
+        reference_line=reference_line,
+        s_values=s_values,
+        corridor_lower_bounds=corridor_lower_bounds,
+        corridor_upper_bounds=corridor_upper_bounds,
+        resolution_m=resolution_m,
+        initial_l=initial_l,
+        initial_dl_ds=initial_dl_ds,
+        initial_d2l_ds2=initial_d2l_ds2,
+        lateral_reference_m=lateral_reference_m,
+        terminal_lateral_target_m=terminal_lateral_target_m,
+        terminal_first_derivative_target=(
+            terminal_first_derivative_target
+        ),
+        lateral_weight=lateral_weight,
+        first_derivative_weight=first_derivative_weight,
+        second_derivative_weight=second_derivative_weight,
+        third_derivative_weight=third_derivative_weight,
+        terminal_lateral_weight=terminal_lateral_weight,
+        terminal_first_derivative_weight=(
+            terminal_first_derivative_weight
+        ),
+        max_second_derivative_abs=max_second_derivative_abs,
+        osqp_verbose=osqp_verbose,
+        osqp_eps_abs=osqp_eps_abs,
+        osqp_eps_rel=osqp_eps_rel,
+    )
+
+    return validate_optimization_result_physical(
+        result=result,
+        vehicle_params=vehicle_params,
+        obstacles=obstacles,
+        max_curvature=max_curvature,
+        minimum_clearance_m=minimum_clearance_m,
+        road_min_l=road_min_l,
+        road_max_l=road_max_l,
+    )
+
+
 def solve_multi_corridor_path(
     reference_line: ReferenceLine,
     corridors: list[LateralCorridor],
@@ -588,6 +928,230 @@ def solve_multi_corridor_path(
     if len(feasible_results) == 0:
         raise RuntimeError(
             "No feasible optimization corridor found."
+        )
+
+    return min(
+        feasible_results,
+        key=lambda result: result.objective_value,
+    )
+
+
+def solve_matched_multi_corridor_path(
+    reference_line: ReferenceLine,
+    corridors: list[LateralCorridor],
+    resolution_m: float,
+    initial_l: float,
+    initial_dl_ds: float,
+    initial_d2l_ds2: float,
+    lateral_reference_m: float,
+    terminal_lateral_target_m: float,
+    terminal_first_derivative_target: float,
+    lateral_weight: float,
+    first_derivative_weight: float,
+    second_derivative_weight: float,
+    third_derivative_weight: float,
+    terminal_lateral_weight: float,
+    terminal_first_derivative_weight: float,
+    max_second_derivative_abs: float,
+    osqp_verbose: bool = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_verbose
+    ),
+    osqp_eps_abs: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_eps_abs
+    ),
+    osqp_eps_rel: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_eps_rel
+    ),
+) -> OptimizationPathResult:
+    """Solve multiple corridors using the canonical matched objective."""
+
+    if len(corridors) == 0:
+        raise ValueError(
+            "At least one corridor is required."
+        )
+
+    reference_s_values = corridors[0].s_values
+
+    feasible_results = []
+
+    for corridor in corridors:
+        if (
+            corridor.s_values.shape
+            != reference_s_values.shape
+            or not np.allclose(
+                corridor.s_values,
+                reference_s_values,
+            )
+        ):
+            raise ValueError(
+                "All corridors must share the same s_values."
+            )
+
+        if not is_corridor_feasible(
+            corridor
+        ):
+            continue
+
+        try:
+            result = solve_matched_optimized_path(
+                reference_line=reference_line,
+                s_values=corridor.s_values,
+                corridor_lower_bounds=corridor.lower_bounds,
+                corridor_upper_bounds=corridor.upper_bounds,
+                resolution_m=resolution_m,
+                initial_l=initial_l,
+                initial_dl_ds=initial_dl_ds,
+                initial_d2l_ds2=initial_d2l_ds2,
+                lateral_reference_m=lateral_reference_m,
+                terminal_lateral_target_m=terminal_lateral_target_m,
+                terminal_first_derivative_target=(
+                    terminal_first_derivative_target
+                ),
+                lateral_weight=lateral_weight,
+                first_derivative_weight=first_derivative_weight,
+                second_derivative_weight=second_derivative_weight,
+                third_derivative_weight=third_derivative_weight,
+                terminal_lateral_weight=terminal_lateral_weight,
+                terminal_first_derivative_weight=(
+                    terminal_first_derivative_weight
+                ),
+                max_second_derivative_abs=max_second_derivative_abs,
+                osqp_verbose=osqp_verbose,
+                osqp_eps_abs=osqp_eps_abs,
+                osqp_eps_rel=osqp_eps_rel,
+            )
+        except RuntimeError:
+            continue
+
+        feasible_results.append(
+            result
+        )
+
+    if len(feasible_results) == 0:
+        raise RuntimeError(
+            "No feasible matched optimization corridor found."
+        )
+
+    return min(
+        feasible_results,
+        key=lambda result: result.objective_value,
+    )
+
+
+def plan_matched_multi_corridor_path(
+    reference_line: ReferenceLine,
+    corridors: list[LateralCorridor],
+    resolution_m: float,
+    initial_l: float,
+    initial_dl_ds: float,
+    initial_d2l_ds2: float,
+    lateral_reference_m: float,
+    terminal_lateral_target_m: float,
+    terminal_first_derivative_target: float,
+    lateral_weight: float,
+    first_derivative_weight: float,
+    second_derivative_weight: float,
+    third_derivative_weight: float,
+    terminal_lateral_weight: float,
+    terminal_first_derivative_weight: float,
+    max_second_derivative_abs: float,
+    vehicle_params: VehicleParams,
+    obstacles: list[StaticObstacle],
+    max_curvature: float,
+    minimum_clearance_m: float,
+    road_min_l: float,
+    road_max_l: float,
+    osqp_verbose: bool = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_verbose
+    ),
+    osqp_eps_abs: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_eps_abs
+    ),
+    osqp_eps_rel: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_eps_rel
+    ),
+) -> OptimizationPathResult:
+    """Solve all corridors and keep only exactly feasible results."""
+
+    if len(corridors) == 0:
+        raise ValueError(
+            "At least one corridor is required."
+        )
+
+    reference_s_values = corridors[0].s_values
+
+    feasible_results = []
+
+    for corridor in corridors:
+        if (
+            corridor.s_values.shape
+            != reference_s_values.shape
+            or not np.allclose(
+                corridor.s_values,
+                reference_s_values,
+            )
+        ):
+            raise ValueError(
+                "All corridors must share the same s_values."
+            )
+
+        if not is_corridor_feasible(
+            corridor
+        ):
+            continue
+
+        try:
+            result = plan_matched_optimized_path(
+                reference_line=reference_line,
+                s_values=corridor.s_values,
+                corridor_lower_bounds=corridor.lower_bounds,
+                corridor_upper_bounds=corridor.upper_bounds,
+                resolution_m=resolution_m,
+                initial_l=initial_l,
+                initial_dl_ds=initial_dl_ds,
+                initial_d2l_ds2=initial_d2l_ds2,
+                lateral_reference_m=lateral_reference_m,
+                terminal_lateral_target_m=terminal_lateral_target_m,
+                terminal_first_derivative_target=(
+                    terminal_first_derivative_target
+                ),
+                lateral_weight=lateral_weight,
+                first_derivative_weight=first_derivative_weight,
+                second_derivative_weight=second_derivative_weight,
+                third_derivative_weight=third_derivative_weight,
+                terminal_lateral_weight=terminal_lateral_weight,
+                terminal_first_derivative_weight=(
+                    terminal_first_derivative_weight
+                ),
+                max_second_derivative_abs=(
+                    max_second_derivative_abs
+                ),
+                vehicle_params=vehicle_params,
+                obstacles=obstacles,
+                max_curvature=max_curvature,
+                minimum_clearance_m=minimum_clearance_m,
+                road_min_l=road_min_l,
+                road_max_l=road_max_l,
+                osqp_verbose=osqp_verbose,
+                osqp_eps_abs=osqp_eps_abs,
+                osqp_eps_rel=osqp_eps_rel,
+            )
+        except RuntimeError:
+            continue
+
+        feasible_results.append(
+            result
+        )
+
+    if len(feasible_results) == 0:
+        raise RuntimeError(
+            "No physically feasible matched optimization corridor found."
         )
 
     return min(

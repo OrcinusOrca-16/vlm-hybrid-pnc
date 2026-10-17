@@ -322,39 +322,39 @@ Benchmark 固定 maneuver intent：
    + w_terminal_l J_terminal_l
    + w_terminal_dl J_terminal_dl`
 
-- [ ] `l`：mean squared lateral deviation
-- [ ] `l'`：mean squared lateral slope / heading-related cost
-- [ ] `l''`：mean squared curvature-related cost
-- [ ] `l'''`：mean squared curvature-change / smoothness cost
-- [ ] terminal `l`：planning horizon 末端 lateral error
-- [ ] terminal `l'`：planning horizon 末端 heading / slope error
-- [ ] 使用 mean-square normalization，降低 discretization 点数变化对 cost scale 的影响
-- [ ] matched benchmark 中移除 Sampling-only path-length/progress cost
+- [x] `l`：mean squared lateral deviation
+- [x] `l'`：mean squared lateral slope / heading-related cost
+- [x] `l''`：mean squared curvature-related cost
+- [x] `l'''`：mean squared curvature-change / smoothness cost
+- [x] terminal `l`：planning horizon 末端 lateral error
+- [x] terminal `l'`：planning horizon 末端 heading / slope error
+- [x] 使用 mean-square normalization，降低 discretization 点数变化对 cost scale 的影响
+- [x] matched benchmark 中移除 Sampling-only path-length/progress cost
 
 #### 14.3 Generalize Returning Sampling
 使 terminal objective 在 Sampling 中真正参与 candidate selection，
 而不是所有 candidate 固定 terminal state。
 
-- [ ] terminal `l` 支持多个 sampled target
-- [ ] terminal `l'` 支持多个 sampled target
-- [ ] 保留 terminal `l''` 的合理边界条件
-- [ ] 保证两段 quintic junction 的 `l / l' / l''` 连续
-- [ ] 保证所有 candidate 使用相同 planning horizon
-- [ ] 验证 candidate 数量及 terminal-state coverage
-- [ ] 验证原 bypass-and-return behavior 仍可生成
+- [x] terminal `l` 支持多个 sampled target
+- [x] terminal `l'` 支持多个 sampled target
+- [x] 保留 terminal `l''` 的合理边界条件
+- [x] 保证两段 quintic junction 的 `l / l' / l''` 连续
+- [x] 保证所有 candidate 使用相同 planning horizon
+- [x] 验证 candidate 数量及 terminal-state coverage
+- [x] 验证原 bypass-and-return behavior 仍可生成
 
 #### 14.4 Matched Optimization Objective
 将相同六项 geometric objective 转换为 Optimization Planner 的 QP。
 
-- [ ] `l` cost → identity quadratic term
-- [ ] `l'` cost → `D1^T D1`
-- [ ] `l''` cost → `D2^T D2`
-- [ ] `l'''` cost → `D3^T D3`
-- [ ] terminal `l` cost → terminal quadratic term
-- [ ] terminal `l'` cost → terminal D1 quadratic term
-- [ ] 构造统一 `P / q`
-- [ ] 验证 Sampling / Optimization 各 cost 项物理意义一致
-- [ ] 验证 QP 保持 convex / PSD
+- [x] `l` cost → identity quadratic term
+- [x] `l'` cost → `D1^T D1`
+- [x] `l''` cost → `D2^T D2`
+- [x] `l'''` cost → `D3^T D3`
+- [x] terminal `l` cost → terminal quadratic term
+- [x] terminal `l'` cost → terminal D1 quadratic term
+- [x] 构造统一 `P / q`
+- [x] 验证 Sampling / Optimization 各 cost 项物理意义一致
+- [x] 验证 QP 保持 convex / PSD
 
 #### 14.5 Matched Hard Constraints
 两种 Planner 使用相同的最终物理可行性标准。
@@ -366,22 +366,22 @@ Benchmark 固定 maneuver intent：
 - initial-state consistency
 
 Sampling：
-- [ ] 保留 exact Cartesian curvature pruning
-- [ ] 保留 exact vehicle-footprint obstacle clearance
-- [ ] 保留 road-boundary pruning
+- [x] 保留 exact Cartesian curvature pruning
+- [x] 保留 exact vehicle-footprint obstacle clearance
+- [x] 保留 road-boundary pruning
 
 Optimization：
-- [ ] 保留 road / obstacle convex corridor
-- [ ] 加入 `D2` curvature-proxy hard bound
-- [ ] 保持 QP convex
-- [ ] QP 求解后转换为 Cartesian
-- [ ] 使用与 Sampling 相同的 exact physical validator
+- [x] 保留 road / obstacle convex corridor
+- [x] 加入 `D2` curvature-proxy hard bound
+- [x] 保持 QP convex
+- [x] QP 求解后转换为 Cartesian
+- [x] 使用与 Sampling 相同的 exact physical validator
 
 统一最终 validation：
-- [ ] exact road-boundary check
-- [ ] exact footprint-to-obstacle clearance
-- [ ] exact Cartesian max curvature
-- [ ] 任一物理约束失败则 planner result 判定为 failure
+- [x] exact road-boundary check
+- [x] exact footprint-to-obstacle clearance
+- [x] exact Cartesian max curvature
+- [x] 任一物理约束失败则 planner result 判定为 failure
 
 #### 14.6 Unified Benchmark Interface
 建立与 planner 类型无关的 Benchmark 输出接口。

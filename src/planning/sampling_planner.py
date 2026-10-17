@@ -68,7 +68,15 @@ def generate_returning_frenet_candidate(
     return_length: float,
     final_l: float = (
         DEFAULT_SAMPLING_PLANNER_CONFIG
-        .returning_final_l_m
+        .returning_final_lateral_positions_m[0]
+    ),
+    final_dl_ds: float = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .returning_final_dl_ds_values[0]
+    ),
+    final_d2l_ds2: float = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .returning_final_d2l_ds2
     ),
     resolution: float = (
         DEFAULT_SAMPLING_PLANNER_CONFIG
@@ -112,8 +120,8 @@ def generate_returning_frenet_candidate(
         start_dl_ds=junction_point.dl_ds,
         start_d2l_ds2=junction_point.d2l_ds2,
         end_l=final_l,
-        end_dl_ds=0.0,
-        end_d2l_ds2=0.0,
+        end_dl_ds=final_dl_ds,
+        end_d2l_ds2=final_d2l_ds2,
         length=return_length,
     )
 
@@ -156,9 +164,23 @@ def generate_returning_frenet_candidates(
         DEFAULT_SAMPLING_PLANNER_CONFIG
         .returning_total_length_m
     ),
-    final_l: float = (
+    final_lateral_positions: tuple[
+        float,
+        ...,
+    ] = (
         DEFAULT_SAMPLING_PLANNER_CONFIG
-        .returning_final_l_m
+        .returning_final_lateral_positions_m
+    ),
+    final_dl_ds_values: tuple[
+        float,
+        ...,
+    ] = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .returning_final_dl_ds_values
+    ),
+    final_d2l_ds2: float = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .returning_final_d2l_ds2
     ),
     resolution: float = (
         DEFAULT_SAMPLING_PLANNER_CONFIG
@@ -170,6 +192,16 @@ def generate_returning_frenet_candidates(
     if total_length <= 0.0:
         raise ValueError(
             "total_length must be positive."
+        )
+
+    if len(final_lateral_positions) == 0:
+        raise ValueError(
+            "final_lateral_positions must not be empty."
+        )
+
+    if len(final_dl_ds_values) == 0:
+        raise ValueError(
+            "final_dl_ds_values must not be empty."
         )
 
     candidates = []
@@ -186,21 +218,27 @@ def generate_returning_frenet_candidates(
             )
 
         for bypass_l in bypass_lateral_positions:
-            candidate = generate_returning_frenet_candidate(
-                start_s=start_s,
-                start_l=start_l,
-                start_dl_ds=start_dl_ds,
-                start_d2l_ds2=start_d2l_ds2,
-                bypass_l=bypass_l,
-                bypass_length=bypass_length,
-                return_length=return_length,
-                final_l=final_l,
-                resolution=resolution,
-            )
+            for final_l in final_lateral_positions:
+                for final_dl_ds in final_dl_ds_values:
+                    candidate = (
+                        generate_returning_frenet_candidate(
+                            start_s=start_s,
+                            start_l=start_l,
+                            start_dl_ds=start_dl_ds,
+                            start_d2l_ds2=start_d2l_ds2,
+                            bypass_l=bypass_l,
+                            bypass_length=bypass_length,
+                            return_length=return_length,
+                            final_l=final_l,
+                            final_dl_ds=final_dl_ds,
+                            final_d2l_ds2=final_d2l_ds2,
+                            resolution=resolution,
+                        )
+                    )
 
-            candidates.append(
-                candidate
-            )
+                    candidates.append(
+                        candidate
+                    )
 
     return candidates
 
@@ -226,9 +264,23 @@ def generate_returning_frenet_candidates_from_vehicle_state(
         DEFAULT_SAMPLING_PLANNER_CONFIG
         .returning_total_length_m
     ),
-    final_l: float = (
+    final_lateral_positions: tuple[
+        float,
+        ...,
+    ] = (
         DEFAULT_SAMPLING_PLANNER_CONFIG
-        .returning_final_l_m
+        .returning_final_lateral_positions_m
+    ),
+    final_dl_ds_values: tuple[
+        float,
+        ...,
+    ] = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .returning_final_dl_ds_values
+    ),
+    final_d2l_ds2: float = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .returning_final_d2l_ds2
     ),
     resolution: float = (
         DEFAULT_SAMPLING_PLANNER_CONFIG
@@ -250,7 +302,9 @@ def generate_returning_frenet_candidates_from_vehicle_state(
         bypass_lateral_positions=bypass_lateral_positions,
         bypass_lengths=bypass_lengths,
         total_length=total_length,
-        final_l=final_l,
+        final_lateral_positions=final_lateral_positions,
+        final_dl_ds_values=final_dl_ds_values,
+        final_d2l_ds2=final_d2l_ds2,
         resolution=resolution,
     )
 

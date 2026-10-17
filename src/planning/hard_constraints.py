@@ -223,7 +223,7 @@ def is_obstacle_clearance_feasible(
     return True
 
 
-def is_candidate_feasible(
+def is_physical_path_feasible(
     trajectory: FrenetTrajectory,
     path: list[PathPoint],
     vehicle_params: VehicleParams,
@@ -233,7 +233,7 @@ def is_candidate_feasible(
     min_l: float,
     max_l: float,
 ) -> bool:
-    """Check all hard constraints for one candidate."""
+    """Apply the common exact physical validator to one planned path."""
 
     if not is_curvature_feasible(
         path=path,
@@ -258,6 +258,30 @@ def is_candidate_feasible(
         return False
 
     return True
+
+
+def is_candidate_feasible(
+    trajectory: FrenetTrajectory,
+    path: list[PathPoint],
+    vehicle_params: VehicleParams,
+    obstacles: list[StaticObstacle],
+    max_curvature: float,
+    minimum_clearance_m: float,
+    min_l: float,
+    max_l: float,
+) -> bool:
+    """Check all hard constraints for one Sampling candidate."""
+
+    return is_physical_path_feasible(
+        trajectory=trajectory,
+        path=path,
+        vehicle_params=vehicle_params,
+        obstacles=obstacles,
+        max_curvature=max_curvature,
+        minimum_clearance_m=minimum_clearance_m,
+        min_l=min_l,
+        max_l=max_l,
+    )
 
 
 def filter_feasible_candidates(

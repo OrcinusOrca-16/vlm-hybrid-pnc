@@ -383,7 +383,7 @@ def visualize_returning_obstacle_case() -> None:
                 18.0,
             ),
             total_length=28.0,
-            final_l=0.0,
+            final_lateral_positions=(0.0,),
             resolution=0.5,
         )
     )

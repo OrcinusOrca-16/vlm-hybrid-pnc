@@ -54,8 +54,8 @@ class SamplingPlannerConfig:
 
     returning_total_length_m: float = 28.0
 
-    returning_final_l_m: float = 0.0
-    returning_final_dl_ds: float = 0.0
+    returning_final_lateral_positions_m: tuple[float, ...] = (0.0,)
+    returning_final_dl_ds_values: tuple[float, ...] = (0.0,)
     returning_final_d2l_ds2: float = 0.0
 
     lateral_weight: float = 1.0

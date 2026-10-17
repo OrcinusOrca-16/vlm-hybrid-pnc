@@ -1,6 +1,11 @@
+import numpy as np
+
 from src.common.types import (
     FrenetTrajectory,
     PathPoint,
+)
+from src.planning.path_objective import (
+    evaluate_path_objective,
 )
 
 
@@ -63,7 +68,7 @@ def total_cost(
     curvature_weight: float,
     length_weight: float,
 ) -> float:
-    """Compute weighted soft cost for one feasible candidate."""
+    """Compute native Sampling Planner cost."""
 
     lateral = lateral_deviation_cost(
         trajectory
@@ -98,7 +103,7 @@ def select_best_candidate(
     FrenetTrajectory,
     list[PathPoint],
 ] | None:
-    """Select the minimum-cost feasible candidate."""
+    """Select the minimum-cost candidate using the native Sampling cost."""
 
     if not feasible_candidates:
         return None
@@ -114,3 +119,99 @@ def select_best_candidate(
         ),
     )
 
+
+def matched_total_cost(
+    trajectory: FrenetTrajectory,
+    resolution_m: float,
+    lateral_reference_m: float,
+    terminal_lateral_target_m: float,
+    terminal_first_derivative_target: float,
+    lateral_weight: float,
+    first_derivative_weight: float,
+    second_derivative_weight: float,
+    third_derivative_weight: float,
+    terminal_lateral_weight: float,
+    terminal_first_derivative_weight: float,
+) -> float:
+    """Compute the canonical matched objective for one Sampling candidate."""
+
+    if not trajectory.points:
+        raise ValueError(
+            "trajectory must not be empty."
+        )
+
+    lateral_values = np.array(
+        [
+            point.l
+            for point in trajectory.points
+        ],
+        dtype=float,
+    )
+
+    evaluation = evaluate_path_objective(
+        lateral_values=lateral_values,
+        resolution_m=resolution_m,
+        lateral_reference_m=lateral_reference_m,
+        terminal_lateral_target_m=terminal_lateral_target_m,
+        terminal_first_derivative_target=(
+            terminal_first_derivative_target
+        ),
+        lateral_weight=lateral_weight,
+        first_derivative_weight=first_derivative_weight,
+        second_derivative_weight=second_derivative_weight,
+        third_derivative_weight=third_derivative_weight,
+        terminal_lateral_weight=terminal_lateral_weight,
+        terminal_first_derivative_weight=(
+            terminal_first_derivative_weight
+        ),
+    )
+
+    return evaluation.total_cost
+
+
+def select_best_matched_candidate(
+    feasible_candidates: list[
+        tuple[
+            FrenetTrajectory,
+            list[PathPoint],
+        ]
+    ],
+    resolution_m: float,
+    lateral_reference_m: float,
+    terminal_lateral_target_m: float,
+    terminal_first_derivative_target: float,
+    lateral_weight: float,
+    first_derivative_weight: float,
+    second_derivative_weight: float,
+    third_derivative_weight: float,
+    terminal_lateral_weight: float,
+    terminal_first_derivative_weight: float,
+) -> tuple[
+    FrenetTrajectory,
+    list[PathPoint],
+] | None:
+    """Select the minimum-cost candidate using the matched objective."""
+
+    if not feasible_candidates:
+        return None
+
+    return min(
+        feasible_candidates,
+        key=lambda candidate: matched_total_cost(
+            trajectory=candidate[0],
+            resolution_m=resolution_m,
+            lateral_reference_m=lateral_reference_m,
+            terminal_lateral_target_m=terminal_lateral_target_m,
+            terminal_first_derivative_target=(
+                terminal_first_derivative_target
+            ),
+            lateral_weight=lateral_weight,
+            first_derivative_weight=first_derivative_weight,
+            second_derivative_weight=second_derivative_weight,
+            third_derivative_weight=third_derivative_weight,
+            terminal_lateral_weight=terminal_lateral_weight,
+            terminal_first_derivative_weight=(
+                terminal_first_derivative_weight
+            ),
+        ),
+    )
