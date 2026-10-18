@@ -404,50 +404,50 @@ Optimization：
 因此其 objective value 可以作为统一 comparison metric；
 其余指标统一使用 planner-independent physical metrics。
 
-- [ ] planning success
-- [ ] canonical matched objective value
-- [ ] terminal lateral error
-- [ ] terminal slope error
-- [ ] RMS lateral deviation
-- [ ] Cartesian path length
-- [ ] minimum exact obstacle clearance
-- [ ] maximum absolute Cartesian curvature
-- [ ] RMS Cartesian curvature
-- [ ] RMS curvature rate
-- [ ] planning computation time
+- [x] planning success
+- [x] canonical matched objective value
+- [x] terminal lateral error
+- [x] terminal slope error
+- [x] RMS lateral deviation
+- [x] Cartesian path length
+- [x] minimum exact obstacle clearance
+- [x] maximum absolute Cartesian curvature
+- [x] RMS Cartesian curvature
+- [x] RMS curvature rate
+- [x] planning computation time
 
 #### 14.8 Canonical Single-Scenario Benchmark
 先使用一个固定 static-obstacle case 验证完整 Benchmark pipeline。
 
 统一：
-- [ ] Reference Line
-- [ ] initial VehicleState
-- [ ] vehicle geometry
-- [ ] road boundary
-- [ ] obstacle geometry
-- [ ] minimum clearance
-- [ ] max curvature
-- [ ] planning horizon
-- [ ] discretization resolution
-- [ ] maneuver intent
+- [x] Reference Line
+- [x] initial VehicleState
+- [x] vehicle geometry
+- [x] road boundary
+- [x] obstacle geometry
+- [x] minimum clearance
+- [x] max curvature
+- [x] planning horizon
+- [x] discretization resolution
+- [x] maneuver intent
 
 输出：
-- [ ] Sampling metrics
-- [ ] Optimization metrics
-- [ ] unified comparison table
-- [ ] 确认 metric evaluator 数值正确
+- [x] Sampling metrics
+- [x] Optimization metrics
+- [x] unified comparison table
+- [x] 确认 metric evaluator 数值正确
 
 #### 14.9 Benchmark Visualization
 只显示共同物理世界和最终 planner output，
 不混入各 planner 内部的 obstacle approximation。
 
-- [ ] Cartesian overlay：Sampling vs Optimization
-- [ ] Frenet `s-l` overlay
-- [ ] Reference Line
-- [ ] road boundary
-- [ ] original obstacle
-- [ ] Sampling best path
-- [ ] Optimization best path
+- [x] Cartesian overlay：Sampling vs Optimization
+- [x] Frenet `s-l` overlay
+- [x] Reference Line
+- [x] road boundary
+- [x] original obstacle
+- [x] Sampling best path
+- [x] Optimization best path
 
 #### 14.10 Runtime Benchmark
 统一完整 planner pipeline 的计时范围。

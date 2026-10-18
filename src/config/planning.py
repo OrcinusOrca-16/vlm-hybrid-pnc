@@ -77,6 +77,8 @@ class OptimizationPlannerConfig:
     second_derivative_weight: float = 5.0
     third_derivative_weight: float = 20.0
 
+    max_second_derivative_abs: float = 1.0
+
     osqp_verbose: bool = False
     osqp_eps_abs: float = 1e-6
     osqp_eps_rel: float = 1e-6
@@ -84,7 +86,7 @@ class OptimizationPlannerConfig:
     horizon_discretization_epsilon_m: float = 1e-9
 
     corridor_affected_epsilon_m: float = 1e-2
-    obstacle_inflation_safety_margin_m: float = 1e-2
+    obstacle_inflation_safety_margin_m: float = 5e-2
 
 
 DEFAULT_PLANNING_CONSTRAINT_CONFIG = (
