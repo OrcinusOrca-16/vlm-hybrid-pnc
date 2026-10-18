@@ -166,12 +166,24 @@ def validate_terminal_cost_changes_selection() -> None:
     assert without_terminal_cost is not None
     assert with_terminal_cost is not None
 
-    without_terminal_trajectory = (
-        without_terminal_cost[0]
+    (
+        without_terminal_trajectory,
+        _,
+        without_terminal_objective,
+    ) = without_terminal_cost
+
+    (
+        with_terminal_trajectory,
+        _,
+        with_terminal_objective,
+    ) = with_terminal_cost
+
+    assert math.isfinite(
+        without_terminal_objective
     )
 
-    with_terminal_trajectory = (
-        with_terminal_cost[0]
+    assert math.isfinite(
+        with_terminal_objective
     )
 
     assert math.isclose(

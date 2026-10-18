@@ -386,21 +386,26 @@ Optimization：
 #### 14.6 Unified Benchmark Interface
 建立与 planner 类型无关的 Benchmark 输出接口。
 
-- [ ] 定义统一 `PlannerBenchmarkResult`
-- [ ] planner name
-- [ ] success / failure
-- [ ] Frenet trajectory
-- [ ] Cartesian path
-- [ ] planning time
-- [ ] failure reason
-- [ ] Sampling adapter
-- [ ] Optimization adapter
+- [x] 定义统一 `PlannerBenchmarkResult`
+- [x] planner name
+- [x] success / failure
+- [x] Frenet trajectory
+- [x] Cartesian path
+- [x] planning time
+- [x] failure reason
+- [x] canonical matched objective value
+- [x] Sampling adapter
+- [x] Optimization adapter
 
 #### 14.7 Common Benchmark Metrics
-禁止直接比较两个 Planner 内部 objective value，
-统一使用 planner-independent physical metrics。
+禁止直接比较两个 Planner 各自的 native / internal objective value。
+
+两种 Planner 使用相同的 canonical matched objective，
+因此其 objective value 可以作为统一 comparison metric；
+其余指标统一使用 planner-independent physical metrics。
 
 - [ ] planning success
+- [ ] canonical matched objective value
 - [ ] terminal lateral error
 - [ ] terminal slope error
 - [ ] RMS lateral deviation

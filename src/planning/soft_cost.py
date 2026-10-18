@@ -189,16 +189,20 @@ def select_best_matched_candidate(
 ) -> tuple[
     FrenetTrajectory,
     list[PathPoint],
+    float,
 ] | None:
     """Select the minimum-cost candidate using the matched objective."""
 
     if not feasible_candidates:
         return None
 
-    return min(
-        feasible_candidates,
-        key=lambda candidate: matched_total_cost(
-            trajectory=candidate[0],
+    best_trajectory = None
+    best_path = None
+    best_cost = None
+
+    for trajectory, path in feasible_candidates:
+        cost = matched_total_cost(
+            trajectory=trajectory,
             resolution_m=resolution_m,
             lateral_reference_m=lateral_reference_m,
             terminal_lateral_target_m=terminal_lateral_target_m,
@@ -213,5 +217,18 @@ def select_best_matched_candidate(
             terminal_first_derivative_weight=(
                 terminal_first_derivative_weight
             ),
-        ),
+        )
+
+        if (
+            best_cost is None
+            or cost < best_cost
+        ):
+            best_trajectory = trajectory
+            best_path = path
+            best_cost = cost
+
+    return (
+        best_trajectory,
+        best_path,
+        best_cost,
     )
