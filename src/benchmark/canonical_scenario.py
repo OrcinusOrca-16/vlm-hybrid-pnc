@@ -1,5 +1,6 @@
-from dataclasses import dataclass
-
+from src.benchmark.scenario import (
+    BenchmarkScenario,
+)
 from src.common.types import (
     StaticObstacle,
     VehicleParams,
@@ -13,7 +14,6 @@ from src.planning.reference_line import (
 )
 
 
-@dataclass(frozen=True)
 class CanonicalBenchmarkScenario:
     """Shared inputs for the canonical planner benchmark."""
 
@@ -44,7 +44,7 @@ class CanonicalBenchmarkScenario:
 
 
 def build_canonical_static_obstacle_scenario(
-) -> CanonicalBenchmarkScenario:
+) -> BenchmarkScenario:
     """Build the fixed static-obstacle benchmark scenario."""
 
     reference_line = ReferenceLine([
@@ -75,7 +75,8 @@ def build_canonical_static_obstacle_scenario(
         ),
     )
 
-    return CanonicalBenchmarkScenario(
+    return BenchmarkScenario(
+        name="static_obstacle",
         reference_line=reference_line,
         vehicle_state=vehicle_state,
         vehicle_params=vehicle_params,

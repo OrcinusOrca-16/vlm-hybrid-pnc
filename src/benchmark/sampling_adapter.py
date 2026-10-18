@@ -16,6 +16,9 @@ from src.planning.frenet import (
 )
 from src.planning.hard_constraints import (
     filter_feasible_candidates,
+    is_curvature_feasible,
+    is_obstacle_clearance_feasible,
+    is_road_boundary_feasible,
 )
 from src.planning.reference_line import (
     ReferenceLine,
@@ -132,11 +135,48 @@ def run_sampling_benchmark_adapter(
             - start_time
         ) * 1000.0
 
+        curvature_failure_count = 0
+        clearance_failure_count = 0
+        road_boundary_failure_count = 0
+
+        for trajectory, path in zip(
+            trajectories,
+            paths,
+        ):
+            if not is_curvature_feasible(
+                path=path,
+                max_curvature=max_curvature,
+            ):
+                curvature_failure_count += 1
+
+            if not is_obstacle_clearance_feasible(
+                path=path,
+                vehicle_params=vehicle_params,
+                obstacles=obstacles,
+                minimum_clearance_m=minimum_clearance_m,
+            ):
+                clearance_failure_count += 1
+
+            if not is_road_boundary_feasible(
+                trajectory=trajectory,
+                vehicle_params=vehicle_params,
+                min_l=road_min_l,
+                max_l=road_max_l,
+            ):
+                road_boundary_failure_count += 1
+
         return PlannerBenchmarkResult.failed(
             planner_name="sampling",
             planning_time_ms=planning_time_ms,
             failure_reason=(
-                "No physically feasible Sampling candidate."
+                "No physically feasible Sampling candidate: "
+                f"total candidates={len(trajectories)}, "
+                "curvature failures="
+                f"{curvature_failure_count}, "
+                "clearance failures="
+                f"{clearance_failure_count}, "
+                "road-boundary failures="
+                f"{road_boundary_failure_count}."
             ),
         )
 

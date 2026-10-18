@@ -302,7 +302,7 @@ Benchmark 固定 maneuver intent：
 - [x] 集中 Optimization Planner 参数
 - [x] 集中 corridor / obstacle inflation 参数
 - [x] 集中 OSQP / numerical tolerance 参数
-- [ ] 集中 Benchmark runtime 参数
+- [x] 集中 Benchmark runtime 参数
 - [x] Planner source 不再包含 tuning parameter hardcode
 - [ ] Benchmark / visualization 统一引用 config
 - [x] 保留 validation oracle / assertion tolerance 作为 test-local 常量
@@ -452,30 +452,30 @@ Optimization：
 #### 14.10 Runtime Benchmark
 统一完整 planner pipeline 的计时范围。
 
-- [ ] 定义 warm-up runs
-- [ ] 定义 repeated runs
-- [ ] Sampling 计时包含 candidate generation / pruning / selection
-- [ ] Optimization 计时包含 corridor / QP build / solve / reconstruction
-- [ ] mean runtime
-- [ ] median runtime
-- [ ] P95 runtime
-- [ ] min / max runtime
+- [x] 定义 warm-up runs
+- [x] 定义 repeated runs
+- [x] Sampling 计时包含 candidate generation / pruning / selection
+- [x] Optimization 计时包含 corridor / QP build / solve / reconstruction
+- [x] mean runtime
+- [x] median runtime
+- [x] P95 runtime
+- [x] min / max runtime
 
 #### 14.11 Multi-Scenario & Stress Benchmark
 在 canonical case 正确后扩展测试覆盖。
 
-- [ ] nominal straight
-- [ ] lateral recovery
-- [ ] static obstacle
-- [ ] mirrored obstacle
-- [ ] curved Reference Line
-- [ ] curved Reference Line + obstacle
-- [ ] narrower road
-- [ ] obstacle lateral-position sweep
-- [ ] obstacle longitudinal-position sweep
-- [ ] road-width sweep
-- [ ] 统计 planning success rate
-- [ ] 记录 failure cases
+- [x] nominal straight
+- [x] lateral recovery
+- [x] static obstacle
+- [x] mirrored obstacle
+- [x] curved Reference Line
+- [x] curved Reference Line + obstacle
+- [x] narrower road
+- [x] obstacle lateral-position sweep
+- [x] obstacle longitudinal-position sweep
+- [x] road-width sweep
+- [x] 统计 planning success rate
+- [x] 记录 failure cases
 
 #### 14.12 Planner Tuning
 Baseline Benchmark 完成后，再分别优化两个 Planner。

@@ -1088,6 +1088,10 @@ def plan_matched_multi_corridor_path(
 
     feasible_results = []
 
+    corridor_infeasible_count = 0
+    qp_failure_count = 0
+    exact_validation_failure_count = 0
+
     for corridor in corridors:
         if (
             corridor.s_values.shape
@@ -1104,10 +1108,11 @@ def plan_matched_multi_corridor_path(
         if not is_corridor_feasible(
             corridor
         ):
+            corridor_infeasible_count += 1
             continue
 
         try:
-            result = plan_matched_optimized_path(
+            result = solve_matched_optimized_path(
                 reference_line=reference_line,
                 s_values=corridor.s_values,
                 corridor_lower_bounds=corridor.lower_bounds,
@@ -1132,17 +1137,26 @@ def plan_matched_multi_corridor_path(
                 max_second_derivative_abs=(
                     max_second_derivative_abs
                 ),
+                osqp_verbose=osqp_verbose,
+                osqp_eps_abs=osqp_eps_abs,
+                osqp_eps_rel=osqp_eps_rel,
+            )
+        except RuntimeError:
+            qp_failure_count += 1
+            continue
+
+        try:
+            result = validate_optimization_result_physical(
+                result=result,
                 vehicle_params=vehicle_params,
                 obstacles=obstacles,
                 max_curvature=max_curvature,
                 minimum_clearance_m=minimum_clearance_m,
                 road_min_l=road_min_l,
                 road_max_l=road_max_l,
-                osqp_verbose=osqp_verbose,
-                osqp_eps_abs=osqp_eps_abs,
-                osqp_eps_rel=osqp_eps_rel,
             )
         except RuntimeError:
+            exact_validation_failure_count += 1
             continue
 
         feasible_results.append(
@@ -1151,7 +1165,12 @@ def plan_matched_multi_corridor_path(
 
     if len(feasible_results) == 0:
         raise RuntimeError(
-            "No physically feasible matched optimization corridor found."
+            "No physically feasible matched optimization corridor found: "
+            "corridor infeasible="
+            f"{corridor_infeasible_count}, "
+            f"QP failures={qp_failure_count}, "
+            "exact validation failures="
+            f"{exact_validation_failure_count}."
         )
 
     return min(
