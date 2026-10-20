@@ -209,11 +209,11 @@
 - [x] lateral maneuver
 - [x] static obstacle avoidance
 - [x] 可视化全部 Candidates 和 Best Path
-- [ ] planning computation time
-- [ ] minimum obstacle clearance
-- [ ] maximum curvature
-- [ ] path length
-- [ ] planning success rate
+- [x] planning computation time
+- [x] minimum obstacle clearance
+- [x] maximum curvature
+- [x] path length
+- [x] planning success rate
 
 ### 13. Optimization-based Path Planner
 使用 Frenet corridor + convex QP 直接优化离散 lateral path，

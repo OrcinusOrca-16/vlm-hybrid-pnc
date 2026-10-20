@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 
+from src.planning.path_objective import (
+    PathObjectiveWeights,
+)
 
 @dataclass(frozen=True)
 class PlanningConstraintConfig:
@@ -62,6 +65,17 @@ class SamplingPlannerConfig:
     curvature_weight: float = 10.0
     length_weight: float = 0.05
 
+    matched_objective_weights: PathObjectiveWeights = (
+        PathObjectiveWeights(
+            lateral_weight=1.0,
+            first_derivative_weight=1.0,
+            second_derivative_weight=5.0,
+            third_derivative_weight=20.0,
+            terminal_lateral_weight=5.0,
+            terminal_first_derivative_weight=5.0,
+        )
+    )
+
 
 @dataclass(frozen=True)
 class OptimizationPlannerConfig:
@@ -87,6 +101,17 @@ class OptimizationPlannerConfig:
 
     corridor_affected_epsilon_m: float = 1e-2
     obstacle_inflation_safety_margin_m: float = 5e-2
+
+    matched_objective_weights: PathObjectiveWeights = (
+        PathObjectiveWeights(
+            lateral_weight=1.0,
+            first_derivative_weight=1.0,
+            second_derivative_weight=5.0,
+            third_derivative_weight=20.0,
+            terminal_lateral_weight=5.0,
+            terminal_first_derivative_weight=5.0,
+        )
+    )
 
 
 DEFAULT_PLANNING_CONSTRAINT_CONFIG = (

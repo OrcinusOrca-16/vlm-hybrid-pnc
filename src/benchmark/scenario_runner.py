@@ -18,6 +18,10 @@ from src.benchmark.scenario import (
 )
 from src.config.planning import (
     DEFAULT_OPTIMIZATION_PLANNER_CONFIG,
+    DEFAULT_SAMPLING_PLANNER_CONFIG,
+)
+from src.planning.path_objective import (
+    PathObjectiveWeights,
 )
 
 
@@ -36,6 +40,14 @@ class ScenarioBenchmarkRun:
 
 def run_benchmark_scenario(
     scenario: BenchmarkScenario,
+    sampling_objective_weights: PathObjectiveWeights = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .matched_objective_weights
+    ),
+    optimization_objective_weights: PathObjectiveWeights = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .matched_objective_weights
+    ),
 ) -> ScenarioBenchmarkRun:
     """Run both planners on one shared benchmark scenario."""
 
@@ -93,6 +105,9 @@ def run_benchmark_scenario(
                 .terminal_first_derivative_target,
             ),
             resolution_m=scenario.resolution_m,
+            planner_objective_weights=(
+                sampling_objective_weights
+            ),
         )
     )
 
@@ -142,6 +157,9 @@ def run_benchmark_scenario(
             max_second_derivative_abs=(
                 DEFAULT_OPTIMIZATION_PLANNER_CONFIG
                 .max_second_derivative_abs
+            ),
+            planner_objective_weights=(
+                optimization_objective_weights
             ),
         )
     )

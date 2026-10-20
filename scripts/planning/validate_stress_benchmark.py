@@ -1,3 +1,5 @@
+import re
+
 from src.benchmark.scenario_runner import (
     run_benchmark_scenario,
 )
@@ -18,6 +20,40 @@ def status_text(
         "PASS"
         if success
         else "FAIL"
+    )
+
+
+def format_ratio(
+    count: int,
+    total: int,
+) -> str:
+    if total <= 0:
+        return "N/A"
+
+    percentage = (
+        100.0 * count / total
+    )
+
+    return (
+        f"{count}/{total} "
+        f"({percentage:.0f}%)"
+    )
+
+
+def extract_int(
+    pattern: str,
+    text: str,
+) -> int | None:
+    match = re.search(
+        pattern,
+        text,
+    )
+
+    if match is None:
+        return None
+
+    return int(
+        match.group(1)
     )
 
 
@@ -79,6 +115,136 @@ def run_sweep(
     print()
 
 
+def print_sampling_failure_table(
+    failure_cases,
+) -> None:
+    print(
+        "  failure_cases:"
+    )
+
+    print(
+        "    Scenario"
+        "                         | Curvature"
+        "   | Clearance"
+        "     | Road boundary"
+    )
+
+    print(
+        "    "
+        + "-" * 88
+    )
+
+    for (
+        scenario_name,
+        reason,
+    ) in failure_cases:
+        total = extract_int(
+            r"total candidates=(\d+)",
+            reason,
+        )
+
+        curvature = extract_int(
+            r"curvature failures=(\d+)",
+            reason,
+        )
+
+        clearance = extract_int(
+            r"clearance failures=(\d+)",
+            reason,
+        )
+
+        road_boundary = extract_int(
+            r"road-boundary failures=(\d+)",
+            reason,
+        )
+
+        if (
+            total is None
+            or curvature is None
+            or clearance is None
+            or road_boundary is None
+        ):
+            print(
+                f"    {scenario_name}: {reason}"
+            )
+            continue
+
+        print(
+            f"    {scenario_name:<32}"
+            " | "
+            f"{format_ratio(curvature, total):<11}"
+            " | "
+            f"{format_ratio(clearance, total):<13}"
+            " | "
+            f"{format_ratio(road_boundary, total):<13}"
+        )
+
+
+def print_optimization_failure_table(
+    failure_cases,
+) -> None:
+    print(
+        "  failure_cases:"
+    )
+
+    print(
+        "    Scenario"
+        "                         | Corridor infeasible"
+        " | QP failure"
+        " | Exact reject"
+    )
+
+    print(
+        "    "
+        + "-" * 94
+    )
+
+    for (
+        scenario_name,
+        reason,
+    ) in failure_cases:
+        corridor_infeasible = extract_int(
+            r"corridor infeasible=(\d+)",
+            reason,
+        )
+
+        qp_failures = extract_int(
+            r"QP failures=(\d+)",
+            reason,
+        )
+
+        exact_failures = extract_int(
+            r"exact validation failures=(\d+)",
+            reason,
+        )
+
+        if (
+            corridor_infeasible is None
+            or qp_failures is None
+            or exact_failures is None
+        ):
+            print(
+                f"    {scenario_name}: {reason}"
+            )
+            continue
+
+        total_branches = (
+            corridor_infeasible
+            + qp_failures
+            + exact_failures
+        )
+
+        print(
+            f"    {scenario_name:<32}"
+            " | "
+            f"{format_ratio(corridor_infeasible, total_branches):<19}"
+            " | "
+            f"{format_ratio(qp_failures, total_branches):<10}"
+            " | "
+            f"{format_ratio(exact_failures, total_branches):<12}"
+        )
+
+
 def print_summary(
     summary,
 ) -> None:
@@ -106,6 +272,18 @@ def print_summary(
     if not summary.failure_cases:
         print(
             "  failure_cases=None"
+        )
+        return
+
+    if summary.planner_name == "Sampling":
+        print_sampling_failure_table(
+            summary.failure_cases
+        )
+        return
+
+    if summary.planner_name == "Optimization":
+        print_optimization_failure_table(
+            summary.failure_cases
         )
         return
 

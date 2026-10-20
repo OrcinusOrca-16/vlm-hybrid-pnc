@@ -112,6 +112,28 @@ def validate_objective_weights(
         )
 
 
+@dataclass(frozen=True)
+class PathObjectiveWeights:
+    lateral_weight: float
+    first_derivative_weight: float
+    second_derivative_weight: float
+    third_derivative_weight: float
+    terminal_lateral_weight: float
+    terminal_first_derivative_weight: float
+
+    def __post_init__(self) -> None:
+        validate_objective_weights(
+            lateral_weight=self.lateral_weight,
+            first_derivative_weight=self.first_derivative_weight,
+            second_derivative_weight=self.second_derivative_weight,
+            third_derivative_weight=self.third_derivative_weight,
+            terminal_lateral_weight=self.terminal_lateral_weight,
+            terminal_first_derivative_weight=(
+                self.terminal_first_derivative_weight
+            ),
+        )
+
+
 def evaluate_path_objective_terms(
     lateral_values: np.ndarray,
     resolution_m: float,
@@ -189,6 +211,54 @@ def evaluate_path_objective_terms(
         ),
         terminal_first_derivative=float(
             terminal_first_derivative_error ** 2
+        ),
+    )
+
+
+def evaluate_frenet_trajectory_objective(
+    trajectory,
+    resolution_m: float,
+    lateral_reference_m: float,
+    terminal_lateral_target_m: float,
+    terminal_first_derivative_target: float,
+    weights: PathObjectiveWeights,
+) -> PathObjectiveEvaluation:
+    if not trajectory.points:
+        raise ValueError(
+            "trajectory must not be empty."
+        )
+
+    lateral_values = np.asarray(
+        [
+            point.l
+            for point in trajectory.points
+        ],
+        dtype=float,
+    )
+
+    return evaluate_path_objective(
+        lateral_values=lateral_values,
+        resolution_m=resolution_m,
+        lateral_reference_m=lateral_reference_m,
+        terminal_lateral_target_m=terminal_lateral_target_m,
+        terminal_first_derivative_target=(
+            terminal_first_derivative_target
+        ),
+        lateral_weight=weights.lateral_weight,
+        first_derivative_weight=(
+            weights.first_derivative_weight
+        ),
+        second_derivative_weight=(
+            weights.second_derivative_weight
+        ),
+        third_derivative_weight=(
+            weights.third_derivative_weight
+        ),
+        terminal_lateral_weight=(
+            weights.terminal_lateral_weight
+        ),
+        terminal_first_derivative_weight=(
+            weights.terminal_first_derivative_weight
         ),
     )
 

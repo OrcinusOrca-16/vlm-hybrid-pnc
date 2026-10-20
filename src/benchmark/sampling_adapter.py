@@ -20,6 +20,10 @@ from src.planning.hard_constraints import (
     is_obstacle_clearance_feasible,
     is_road_boundary_feasible,
 )
+from src.planning.path_objective import (
+    PathObjectiveWeights,
+    evaluate_frenet_trajectory_objective,
+)
 from src.planning.reference_line import (
     ReferenceLine,
 )
@@ -88,6 +92,10 @@ def run_sampling_benchmark_adapter(
     resolution_m: float = (
         DEFAULT_SAMPLING_PLANNER_CONFIG
         .resolution_m
+    ),
+    planner_objective_weights: PathObjectiveWeights = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG
+        .matched_objective_weights
     ),
 ) -> PlannerBenchmarkResult:
     """Run the matched Sampling Planner through the benchmark interface."""
@@ -189,13 +197,29 @@ def run_sampling_benchmark_adapter(
             terminal_first_derivative_target=(
                 terminal_first_derivative_target
             ),
-            lateral_weight=lateral_weight,
-            first_derivative_weight=first_derivative_weight,
-            second_derivative_weight=second_derivative_weight,
-            third_derivative_weight=third_derivative_weight,
-            terminal_lateral_weight=terminal_lateral_weight,
+            lateral_weight=(
+                planner_objective_weights
+                .lateral_weight
+            ),
+            first_derivative_weight=(
+                planner_objective_weights
+                .first_derivative_weight
+            ),
+            second_derivative_weight=(
+                planner_objective_weights
+                .second_derivative_weight
+            ),
+            third_derivative_weight=(
+                planner_objective_weights
+                .third_derivative_weight
+            ),
+            terminal_lateral_weight=(
+                planner_objective_weights
+                .terminal_lateral_weight
+            ),
             terminal_first_derivative_weight=(
-                terminal_first_derivative_weight
+                planner_objective_weights
+                .terminal_first_derivative_weight
             ),
         )
     )
@@ -208,8 +232,34 @@ def run_sampling_benchmark_adapter(
     (
         best_trajectory,
         best_path,
-        matched_objective_value,
+        _planner_objective_value,
     ) = best_candidate
+
+    canonical_weights = PathObjectiveWeights(
+        lateral_weight=lateral_weight,
+        first_derivative_weight=first_derivative_weight,
+        second_derivative_weight=second_derivative_weight,
+        third_derivative_weight=third_derivative_weight,
+        terminal_lateral_weight=terminal_lateral_weight,
+        terminal_first_derivative_weight=(
+            terminal_first_derivative_weight
+        ),
+    )
+
+    canonical_evaluation = (
+        evaluate_frenet_trajectory_objective(
+            trajectory=best_trajectory,
+            resolution_m=resolution_m,
+            lateral_reference_m=lateral_reference_m,
+            terminal_lateral_target_m=(
+                terminal_lateral_target_m
+            ),
+            terminal_first_derivative_target=(
+                terminal_first_derivative_target
+            ),
+            weights=canonical_weights,
+        )
+    )
 
     planning_time_ms = (
         perf_counter()
@@ -222,6 +272,6 @@ def run_sampling_benchmark_adapter(
         path=best_path,
         planning_time_ms=planning_time_ms,
         matched_objective_value=(
-            matched_objective_value
+            canonical_evaluation.total_cost
         ),
     )

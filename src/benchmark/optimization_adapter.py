@@ -8,6 +8,9 @@ from src.common.types import (
     VehicleParams,
     VehicleState,
 )
+from src.config.planning import (
+    DEFAULT_OPTIMIZATION_PLANNER_CONFIG,
+)
 from src.planning.frenet import (
     vehicle_state_to_frenet,
 )
@@ -19,6 +22,10 @@ from src.planning.lateral_corridor import (
 )
 from src.planning.optimization_planner import (
     plan_matched_multi_corridor_path,
+)
+from src.planning.path_objective import (
+    PathObjectiveWeights,
+    evaluate_frenet_trajectory_objective,
 )
 from src.planning.reference_line import (
     ReferenceLine,
@@ -46,6 +53,10 @@ def run_optimization_benchmark_adapter(
     terminal_lateral_weight: float,
     terminal_first_derivative_weight: float,
     max_second_derivative_abs: float,
+    planner_objective_weights: PathObjectiveWeights = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .matched_objective_weights
+    ),
 ) -> PlannerBenchmarkResult:
     """Run the matched Optimization Planner through the benchmark interface."""
 
@@ -116,13 +127,29 @@ def run_optimization_benchmark_adapter(
             terminal_first_derivative_target=(
                 terminal_first_derivative_target
             ),
-            lateral_weight=lateral_weight,
-            first_derivative_weight=first_derivative_weight,
-            second_derivative_weight=second_derivative_weight,
-            third_derivative_weight=third_derivative_weight,
-            terminal_lateral_weight=terminal_lateral_weight,
+            lateral_weight=(
+                planner_objective_weights
+                .lateral_weight
+            ),
+            first_derivative_weight=(
+                planner_objective_weights
+                .first_derivative_weight
+            ),
+            second_derivative_weight=(
+                planner_objective_weights
+                .second_derivative_weight
+            ),
+            third_derivative_weight=(
+                planner_objective_weights
+                .third_derivative_weight
+            ),
+            terminal_lateral_weight=(
+                planner_objective_weights
+                .terminal_lateral_weight
+            ),
             terminal_first_derivative_weight=(
-                terminal_first_derivative_weight
+                planner_objective_weights
+                .terminal_first_derivative_weight
             ),
             max_second_derivative_abs=(
                 max_second_derivative_abs
@@ -146,6 +173,32 @@ def run_optimization_benchmark_adapter(
             failure_reason=str(error),
         )
 
+    canonical_weights = PathObjectiveWeights(
+        lateral_weight=lateral_weight,
+        first_derivative_weight=first_derivative_weight,
+        second_derivative_weight=second_derivative_weight,
+        third_derivative_weight=third_derivative_weight,
+        terminal_lateral_weight=terminal_lateral_weight,
+        terminal_first_derivative_weight=(
+            terminal_first_derivative_weight
+        ),
+    )
+
+    canonical_evaluation = (
+        evaluate_frenet_trajectory_objective(
+            trajectory=result.trajectory,
+            resolution_m=resolution_m,
+            lateral_reference_m=lateral_reference_m,
+            terminal_lateral_target_m=(
+                terminal_lateral_target_m
+            ),
+            terminal_first_derivative_target=(
+                terminal_first_derivative_target
+            ),
+            weights=canonical_weights,
+        )
+    )
+
     planning_time_ms = (
         perf_counter()
         - start_time
@@ -156,5 +209,7 @@ def run_optimization_benchmark_adapter(
         trajectory=result.trajectory,
         path=result.path,
         planning_time_ms=planning_time_ms,
-        matched_objective_value=result.objective_value,
+        matched_objective_value=(
+            canonical_evaluation.total_cost
+        ),
     )
