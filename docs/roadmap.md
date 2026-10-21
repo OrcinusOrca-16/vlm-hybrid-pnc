@@ -490,18 +490,18 @@ Sampling tuning：
 - [x] candidate count vs runtime
 
 Optimization tuning：
-- [ ] `l / l' / l'' / l'''` weights
-- [ ] terminal `l / l'` weights
-- [ ] longitudinal discretization resolution
-- [ ] curvature-proxy bound
-- [ ] corridor parameters
-- [ ] solver tolerance vs runtime
+- [x] `l / l' / l'' / l'''` weights
+- [x] terminal `l / l'` weights
+- [x] longitudinal discretization resolution
+- [x] curvature-proxy bound
+- [x] corridor parameters
+- [x] solver tolerance vs runtime
 
 Tuning methodology：
 - [x] 建立独立 tuning scenario set
-- [ ] 两个 Planner 分别调到合理最佳性能
-- [ ] 冻结 tuned configs
-- [ ] 不使用 final evaluation scenarios 调参
+- [x] 两个 Planner 分别调到合理最佳性能
+- [x] 冻结 tuned configs
+- [x] 不使用 final evaluation scenarios 调参
 
 #### 14.13 Final Planner Evaluation
 使用冻结后的 tuned configs，

@@ -53,6 +53,22 @@ def run_optimization_benchmark_adapter(
     terminal_lateral_weight: float,
     terminal_first_derivative_weight: float,
     max_second_derivative_abs: float,
+    obstacle_inflation_safety_margin_m: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .obstacle_inflation_safety_margin_m
+    ),
+    corridor_affected_epsilon_m: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .corridor_affected_epsilon_m
+    ),
+    osqp_eps_abs: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_eps_abs
+    ),
+    osqp_eps_rel: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .osqp_eps_rel
+    ),
     planner_objective_weights: PathObjectiveWeights = (
         DEFAULT_OPTIMIZATION_PLANNER_CONFIG
         .matched_objective_weights
@@ -97,6 +113,7 @@ def run_optimization_benchmark_adapter(
             obstacle=frenet_obstacle,
             vehicle_params=vehicle_params,
             minimum_clearance_m=minimum_clearance_m,
+            safety_margin_m=obstacle_inflation_safety_margin_m,
         )
 
         (
@@ -105,6 +122,7 @@ def run_optimization_benchmark_adapter(
         ) = build_obstacle_branch_corridors(
             base_corridor=base_corridor,
             obstacle=inflated_obstacle,
+            corridor_epsilon_m=corridor_affected_epsilon_m,
         )
 
         corridors = [
@@ -160,6 +178,8 @@ def run_optimization_benchmark_adapter(
             minimum_clearance_m=minimum_clearance_m,
             road_min_l=road_min_l,
             road_max_l=road_max_l,
+            osqp_eps_abs=osqp_eps_abs,
+            osqp_eps_rel=osqp_eps_rel,
         )
     except RuntimeError as error:
         planning_time_ms = (

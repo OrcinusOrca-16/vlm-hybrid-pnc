@@ -90,7 +90,7 @@ class OptimizationPlannerConfig:
 
     matched_objective_weights: PathObjectiveWeights = (
         PathObjectiveWeights(
-            lateral_weight=1.0,
+            lateral_weight=0.5,
             first_derivative_weight=1.0,
             second_derivative_weight=5.0,
             third_derivative_weight=20.0,

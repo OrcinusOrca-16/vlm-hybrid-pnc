@@ -225,23 +225,27 @@ def is_corridor_feasible(
 def build_obstacle_branch_corridors(
     base_corridor: LateralCorridor,
     obstacle: InflatedFrenetObstacle,
+    corridor_epsilon_m: float = (
+        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+        .corridor_affected_epsilon_m
+    ),
 ) -> tuple[
     LateralCorridor,
     LateralCorridor,
 ]:
-    corridor_epsilon = (
-        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
-        .corridor_affected_epsilon_m
-    )
+    if corridor_epsilon_m < 0.0:
+        raise ValueError(
+            "corridor_epsilon_m must not be negative."
+        )
 
     affected = (
         (
             base_corridor.s_values
-            >= obstacle.min_s - corridor_epsilon
+            >= obstacle.min_s - corridor_epsilon_m
         )
         & (
             base_corridor.s_values
-            <= obstacle.max_s + corridor_epsilon
+            <= obstacle.max_s + corridor_epsilon_m
         )
     )
 
