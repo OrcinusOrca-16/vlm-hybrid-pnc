@@ -13,7 +13,6 @@ from src.benchmark.tuning_scenario_suite import (
 EXPECTED_TUNING_NAMES = (
     "tuning_lateral_recovery",
     "tuning_obstacle_lateral_-0.75",
-    "tuning_obstacle_lateral_+0.00",
     "tuning_obstacle_lateral_+0.75",
     "tuning_obstacle_longitudinal_18.00",
     "tuning_obstacle_longitudinal_34.00",
@@ -74,9 +73,9 @@ def main() -> None:
     assert tuning_names == EXPECTED_TUNING_NAMES
     assert evaluation_names == EXPECTED_EVALUATION_NAMES
 
-    assert len(tuning_scenarios) == 8
+    assert len(tuning_scenarios) == 7
     assert len(stress_scenarios) == 19
-    assert len(development_scenarios) == 27
+    assert len(development_scenarios) == 26
     assert len(evaluation_scenarios) == 9
 
     assert development_names == (

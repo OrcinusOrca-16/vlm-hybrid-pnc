@@ -148,7 +148,6 @@ def build_tuning_scenarios(
     return (
         build_tuning_lateral_recovery_scenario(),
         build_tuning_obstacle_lateral_negative_scenario(),
-        build_tuning_obstacle_center_scenario(),
         build_tuning_obstacle_lateral_positive_scenario(),
         build_tuning_obstacle_early_scenario(),
         build_tuning_obstacle_late_scenario(),

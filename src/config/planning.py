@@ -33,10 +33,8 @@ class SamplingPlannerConfig:
 
     sampling_epsilon_m: float = 1e-9
 
-    returning_bypass_lateral_positions_m: tuple[
-        float,
-        ...,
-    ] = (
+    returning_bypass_lateral_positions_m = (
+        -2.0,
         -1.5,
         -1.0,
         -0.5,
@@ -44,15 +42,15 @@ class SamplingPlannerConfig:
         0.5,
         1.0,
         1.5,
+        2.0,
     )
 
-    returning_bypass_lengths_m: tuple[
-        float,
-        ...,
-    ] = (
+    returning_bypass_lengths_m = (
+        6.0,
         10.0,
         14.0,
         18.0,
+        22.0,
     )
 
     returning_total_length_m: float = 28.0

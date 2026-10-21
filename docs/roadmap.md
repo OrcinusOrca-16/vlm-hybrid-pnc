@@ -481,13 +481,13 @@ Optimization：
 Baseline Benchmark 完成后，再分别优化两个 Planner。
 
 Sampling tuning：
-- [ ] `l / l' / l'' / l'''` weights
-- [ ] terminal `l / l'` weights
-- [ ] lateral sampling interval
-- [ ] bypass lateral range
-- [ ] bypass-length sampling
-- [ ] terminal-state sampling density
-- [ ] candidate count vs runtime
+- [x] `l / l' / l'' / l'''` weights
+- [x] terminal `l / l'` weights
+- [x] lateral sampling interval
+- [x] bypass lateral range
+- [x] bypass-length sampling
+- [x] terminal-state sampling density
+- [x] candidate count vs runtime
 
 Optimization tuning：
 - [ ] `l / l' / l'' / l'''` weights
@@ -498,7 +498,7 @@ Optimization tuning：
 - [ ] solver tolerance vs runtime
 
 Tuning methodology：
-- [ ] 建立独立 tuning scenario set
+- [x] 建立独立 tuning scenario set
 - [ ] 两个 Planner 分别调到合理最佳性能
 - [ ] 冻结 tuned configs
 - [ ] 不使用 final evaluation scenarios 调参
