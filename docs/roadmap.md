@@ -304,7 +304,7 @@ Benchmark 固定 maneuver intent：
 - [x] 集中 OSQP / numerical tolerance 参数
 - [x] 集中 Benchmark runtime 参数
 - [x] Planner source 不再包含 tuning parameter hardcode
-- [ ] Benchmark / visualization 统一引用 config
+- [x] Benchmark / visualization 统一引用 config
 - [x] 保留 validation oracle / assertion tolerance 作为 test-local 常量
 - [x] 重新运行全部 Sampling / Optimization regression tests
 - [x] 确认 config refactor 不改变原有数值结果

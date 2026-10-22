@@ -6,6 +6,15 @@ from src.common.types import (
     VehicleParams,
     VehicleState,
 )
+from src.config.benchmark import (
+    DEFAULT_CANONICAL_BENCHMARK_CONFIG,
+)
+from src.config.planning import (
+    DEFAULT_PLANNING_CONSTRAINT_CONFIG,
+)
+from src.config.scenario import (
+    DEFAULT_ROAD_CONFIG,
+)
 from src.config.vehicle import (
     DEFAULT_VEHICLE_CONFIG,
 )
@@ -75,25 +84,73 @@ def build_canonical_static_obstacle_scenario(
         ),
     )
 
+    benchmark_config = (
+        DEFAULT_CANONICAL_BENCHMARK_CONFIG
+    )
+
+    physical_config = (
+        DEFAULT_PLANNING_CONSTRAINT_CONFIG
+    )
+
+    road_config = (
+        DEFAULT_ROAD_CONFIG
+    )
+
+    objective_weights = (
+        benchmark_config
+        .matched_objective_weights
+    )
+
     return BenchmarkScenario(
         name="static_obstacle",
         reference_line=reference_line,
         vehicle_state=vehicle_state,
         vehicle_params=vehicle_params,
         obstacles=obstacles,
-        road_min_l=-3.0,
-        road_max_l=3.0,
-        max_curvature=1.0,
-        minimum_clearance_m=0.5,
-        planning_horizon_m=28.0,
-        resolution_m=0.5,
-        lateral_reference_m=0.0,
-        terminal_lateral_target_m=0.0,
-        terminal_first_derivative_target=0.0,
-        lateral_weight=1.0,
-        first_derivative_weight=1.0,
-        second_derivative_weight=5.0,
-        third_derivative_weight=20.0,
-        terminal_lateral_weight=5.0,
-        terminal_first_derivative_weight=5.0,
+        road_min_l=road_config.min_l_m,
+        road_max_l=road_config.max_l_m,
+        max_curvature=physical_config.max_curvature,
+        minimum_clearance_m=(
+            physical_config.minimum_clearance_m
+        ),
+        planning_horizon_m=(
+            benchmark_config.planning_horizon_m
+        ),
+        resolution_m=(
+            benchmark_config.resolution_m
+        ),
+        lateral_reference_m=(
+            benchmark_config.lateral_reference_m
+        ),
+        terminal_lateral_target_m=(
+            benchmark_config
+            .terminal_lateral_target_m
+        ),
+        terminal_first_derivative_target=(
+            benchmark_config
+            .terminal_first_derivative_target
+        ),
+        lateral_weight=(
+            objective_weights.lateral_weight
+        ),
+        first_derivative_weight=(
+            objective_weights
+            .first_derivative_weight
+        ),
+        second_derivative_weight=(
+            objective_weights
+            .second_derivative_weight
+        ),
+        third_derivative_weight=(
+            objective_weights
+            .third_derivative_weight
+        ),
+        terminal_lateral_weight=(
+            objective_weights
+            .terminal_lateral_weight
+        ),
+        terminal_first_derivative_weight=(
+            objective_weights
+            .terminal_first_derivative_weight
+        ),
     )
