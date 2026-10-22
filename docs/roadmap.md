@@ -507,17 +507,17 @@ Tuning methodology：
 使用冻结后的 tuned configs，
 在未参与调参的 evaluation scenario set 上重新比较。
 
-- [ ] Sampling tuned result
-- [ ] Optimization tuned result
-- [ ] path quality comparison
-- [ ] smoothness comparison
-- [ ] safety margin comparison
-- [ ] success-rate comparison
-- [ ] computation-time comparison
-- [ ] 分析 Sampling density trade-off
-- [ ] 分析 convex Optimization approximation trade-off
-- [ ] 总结两种 Planner 的优缺点
-- [ ] 保存 CSV / figures / benchmark summary
+- [x] Sampling tuned result
+- [x] Optimization tuned result
+- [x] path quality comparison
+- [x] smoothness comparison
+- [x] safety margin comparison
+- [x] success-rate comparison
+- [x] computation-time comparison
+- [x] 分析 Sampling density trade-off
+- [x] 分析 convex Optimization approximation trade-off
+- [x] 总结两种 Planner 的优缺点
+- [x] 保存 CSV / figures / benchmark summary
 
 后续 Phase 15 / 16 再进行 Curvature-aware MPC 和
 same-controller closed-loop Planning & Control Benchmark。

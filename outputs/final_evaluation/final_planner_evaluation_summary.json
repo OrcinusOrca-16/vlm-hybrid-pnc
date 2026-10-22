@@ -1,0 +1,270 @@
+{
+  "metadata": {
+    "frozen_git_commit": "b838308a16735ca37515890c1bbb0e8dc54369a6",
+    "evaluation_scenario_count": 9,
+    "comparison_protocol": {
+      "success_rate": "all held-out scenarios",
+      "path_quality": "common-success scenarios only",
+      "smoothness": "common-success scenarios only",
+      "clearance": "common-success obstacle scenarios only",
+      "runtime": "all held-out scenarios"
+    },
+    "sampling_config": {
+      "target_lateral_positions_m": [
+        -1.5,
+        -0.75,
+        0.0,
+        0.75,
+        1.5
+      ],
+      "target_lengths_m": [
+        10.0,
+        20.0
+      ],
+      "resolution_m": 0.5,
+      "sampling_epsilon_m": 1e-09,
+      "returning_bypass_lateral_positions_m": [
+        -2.0,
+        -1.5,
+        -1.0,
+        -0.5,
+        0.0,
+        0.5,
+        1.0,
+        1.5,
+        2.0
+      ],
+      "returning_bypass_lengths_m": [
+        6.0,
+        10.0,
+        14.0,
+        18.0,
+        22.0
+      ],
+      "returning_total_length_m": 28.0,
+      "returning_final_lateral_positions_m": [
+        0.0
+      ],
+      "returning_final_dl_ds_values": [
+        0.0
+      ],
+      "returning_final_d2l_ds2": 0.0,
+      "lateral_weight": 1.0,
+      "curvature_weight": 10.0,
+      "length_weight": 0.05,
+      "matched_objective_weights": {
+        "lateral_weight": 1.0,
+        "first_derivative_weight": 1.0,
+        "second_derivative_weight": 5.0,
+        "third_derivative_weight": 20.0,
+        "terminal_lateral_weight": 5.0,
+        "terminal_first_derivative_weight": 5.0
+      }
+    },
+    "optimization_config": {
+      "resolution_m": 0.5,
+      "planning_horizon_m": 28.0,
+      "lateral_reference_m": 0.0,
+      "lateral_weight": 0.2,
+      "first_derivative_weight": 1.0,
+      "second_derivative_weight": 5.0,
+      "third_derivative_weight": 20.0,
+      "max_second_derivative_abs": 1.0,
+      "osqp_verbose": false,
+      "osqp_eps_abs": 1e-06,
+      "osqp_eps_rel": 1e-06,
+      "horizon_discretization_epsilon_m": 1e-09,
+      "corridor_affected_epsilon_m": 0.01,
+      "obstacle_inflation_safety_margin_m": 0.05,
+      "matched_objective_weights": {
+        "lateral_weight": 0.5,
+        "first_derivative_weight": 1.0,
+        "second_derivative_weight": 5.0,
+        "third_derivative_weight": 20.0,
+        "terminal_lateral_weight": 5.0,
+        "terminal_first_derivative_weight": 5.0
+      }
+    }
+  },
+  "scenario_names": [
+    "evaluation_lateral_recovery",
+    "evaluation_obstacle_lateral_-0.60",
+    "evaluation_obstacle_lateral_+0.60",
+    "evaluation_obstacle_longitudinal_19.00",
+    "evaluation_obstacle_longitudinal_35.00",
+    "evaluation_road_half_width_2.10",
+    "evaluation_road_half_width_1.85",
+    "evaluation_curved_nominal",
+    "evaluation_curved_obstacle"
+  ],
+  "success": {
+    "sampling": {
+      "count": 8,
+      "total": 9,
+      "rate": 0.8888888888888888,
+      "failure_scenarios": [
+        "evaluation_road_half_width_1.85"
+      ]
+    },
+    "optimization": {
+      "count": 8,
+      "total": 9,
+      "rate": 0.8888888888888888,
+      "failure_scenarios": [
+        "evaluation_road_half_width_1.85"
+      ]
+    }
+  },
+  "common_success": {
+    "count": 8,
+    "scenario_names": [
+      "evaluation_lateral_recovery",
+      "evaluation_obstacle_lateral_-0.60",
+      "evaluation_obstacle_lateral_+0.60",
+      "evaluation_obstacle_longitudinal_19.00",
+      "evaluation_obstacle_longitudinal_35.00",
+      "evaluation_road_half_width_2.10",
+      "evaluation_curved_nominal",
+      "evaluation_curved_obstacle"
+    ],
+    "sampling": {
+      "mean_canonical_objective": 0.5124892770233737,
+      "mean_terminal_lateral_error_m": 4.440892098500658e-16,
+      "mean_terminal_slope_error": 0.00189358996312139,
+      "mean_rms_lateral_deviation_m": 0.6156120591673797,
+      "mean_cartesian_path_length_m": 28.129172321215627,
+      "mean_minimum_obstacle_clearance_m": 0.6582555280957846,
+      "worst_minimum_obstacle_clearance_m": 0.554410697864606,
+      "mean_max_abs_curvature_per_m": 0.07721201464135069,
+      "mean_rms_curvature_per_m": 0.03377129989221423,
+      "mean_rms_curvature_rate_per_m2": 0.02630801528296818
+    },
+    "optimization": {
+      "mean_canonical_objective": 0.6772310583456171,
+      "mean_terminal_lateral_error_m": 0.004392030494841125,
+      "mean_terminal_slope_error": 0.008333659146278826,
+      "mean_rms_lateral_deviation_m": 0.6026020436894609,
+      "mean_cartesian_path_length_m": 28.26407567829343,
+      "mean_minimum_obstacle_clearance_m": 0.704815089593948,
+      "worst_minimum_obstacle_clearance_m": 0.5118130820468543,
+      "mean_max_abs_curvature_per_m": 0.18123857002467228,
+      "mean_rms_curvature_per_m": 0.05614355639530074,
+      "mean_rms_curvature_rate_per_m2": 0.050270971224437896
+    }
+  },
+  "runtime_all_scenarios": {
+    "sampling": {
+      "mean_ms": 184.20877777781345,
+      "median_ms": 182.7978000001167,
+      "min_ms": 180.42400000013004,
+      "max_ms": 188.86590000010983
+    },
+    "optimization": {
+      "mean_ms": 7.60178888888024,
+      "median_ms": 7.220499999675667,
+      "min_ms": 6.412600000203383,
+      "max_ms": 11.087299999871902
+    }
+  },
+  "scenario_results": [
+    {
+      "scenario": "evaluation_lateral_recovery",
+      "sampling": {
+        "success": true,
+        "failure_reason": null
+      },
+      "optimization": {
+        "success": true,
+        "failure_reason": null
+      }
+    },
+    {
+      "scenario": "evaluation_obstacle_lateral_-0.60",
+      "sampling": {
+        "success": true,
+        "failure_reason": null
+      },
+      "optimization": {
+        "success": true,
+        "failure_reason": null
+      }
+    },
+    {
+      "scenario": "evaluation_obstacle_lateral_+0.60",
+      "sampling": {
+        "success": true,
+        "failure_reason": null
+      },
+      "optimization": {
+        "success": true,
+        "failure_reason": null
+      }
+    },
+    {
+      "scenario": "evaluation_obstacle_longitudinal_19.00",
+      "sampling": {
+        "success": true,
+        "failure_reason": null
+      },
+      "optimization": {
+        "success": true,
+        "failure_reason": null
+      }
+    },
+    {
+      "scenario": "evaluation_obstacle_longitudinal_35.00",
+      "sampling": {
+        "success": true,
+        "failure_reason": null
+      },
+      "optimization": {
+        "success": true,
+        "failure_reason": null
+      }
+    },
+    {
+      "scenario": "evaluation_road_half_width_2.10",
+      "sampling": {
+        "success": true,
+        "failure_reason": null
+      },
+      "optimization": {
+        "success": true,
+        "failure_reason": null
+      }
+    },
+    {
+      "scenario": "evaluation_road_half_width_1.85",
+      "sampling": {
+        "success": false,
+        "failure_reason": "No physically feasible Sampling candidate: total candidates=45, curvature failures=0, clearance failures=34, road-boundary failures=30."
+      },
+      "optimization": {
+        "success": false,
+        "failure_reason": "No physically feasible matched optimization corridor found: corridor infeasible=1, QP failures=0, exact validation failures=1."
+      }
+    },
+    {
+      "scenario": "evaluation_curved_nominal",
+      "sampling": {
+        "success": true,
+        "failure_reason": null
+      },
+      "optimization": {
+        "success": true,
+        "failure_reason": null
+      }
+    },
+    {
+      "scenario": "evaluation_curved_obstacle",
+      "sampling": {
+        "success": true,
+        "failure_reason": null
+      },
+      "optimization": {
+        "success": true,
+        "failure_reason": null
+      }
+    }
+  ]
+}
