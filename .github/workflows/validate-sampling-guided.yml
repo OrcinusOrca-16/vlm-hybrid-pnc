@@ -11,7 +11,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,57 +22,79 @@ jobs:
         run: |
           python -m py_compile scripts/planning/run_sampling_tuning.py
           python -m py_compile scripts/planning/run_sampling_tuning_guided.py
-      - name: Run historical Sampling tuning
-        run: |
-          python -m scripts.planning.run_sampling_tuning
-          cp outputs/tuning/sampling_tuning_summary.json /tmp/legacy_sampling_summary.json
-      - name: Run guided structural tuning
-        run: python -m scripts.planning.run_sampling_tuning_guided --mode structure
-      - name: Compare Stage A with historical runner
+      - name: Compare guided Stage A with legacy Stage A functions
         run: |
           python - <<'PY'
-          import json
-          from pathlib import Path
+          from scripts.planning import run_sampling_tuning as legacy
+          from scripts.planning import run_sampling_tuning_guided as guided
+          from src.config.planning import DEFAULT_SAMPLING_PLANNER_CONFIG
 
-          legacy = json.loads(Path('/tmp/legacy_sampling_summary.json').read_text())
-          guided = json.loads(Path('outputs/tuning/sampling_tuning_guided_summary.json').read_text())
-          old = legacy['stage_a_structure']
-          new = guided['stage_a_structure']
+          _, scenarios, _ = legacy.prepare_scenarios()
+          weights = DEFAULT_SAMPLING_PLANNER_CONFIG.matched_objective_weights
 
-          assert old['max_success_count'] == new['max_success_count']
-          assert old['total_active_scenarios'] == new['total_active_scenarios']
-          assert old['common_comparison_scenarios'] == new['common_comparison_scenarios']
-
-          old_configs = {item['name']: item for item in old['configs']}
-          new_configs = {item['name']: item for item in new['configs']}
-          assert old_configs.keys() == new_configs.keys()
-
-          for name in old_configs:
-              before = old_configs[name]
-              after = new_configs[name]
-              for key in ('candidate_count', 'success_count', 'total_count', 'failure_names'):
-                  assert before[key] == after[key], (name, key, before[key], after[key])
-              for key in ('mean_success_objective', 'comparison_objective'):
-                  a = before[key]
-                  b = after[key]
-                  if a is None or b is None:
-                      assert a == b
-                  else:
-                      assert abs(a - b) < 1e-12, (name, key, a, b)
-
-              generated = after['generated_candidate_total']
-              classified = (
-                  after['feasible_candidate_total']
-                  + after['curvature_reject_total']
-                  + after['clearance_reject_total']
-                  + after['road_boundary_reject_total']
+          legacy_evaluations = [
+              legacy.evaluate_config(
+                  config=config,
+                  scenarios=scenarios,
+                  planner_weights=weights,
               )
-              assert generated == classified, (name, generated, classified)
+              for config in legacy.build_structure_configs()
+          ]
+          legacy_max, legacy_common, legacy_group = (
+              legacy.configure_common_objective(legacy_evaluations)
+          )
+          legacy_frontier = legacy.pareto_frontier(legacy_group)
 
-          print('Guided Stage A matches historical Stage A deterministically.')
+          (
+              guided_evaluations,
+              guided_frontier,
+              guided_common,
+              guided_summary,
+          ) = guided.run_structure_stage(
+              active_scenarios=scenarios,
+              planner_weights=weights,
+          )
+
+          assert legacy_max == guided_summary['max_success_count']
+          assert sorted(legacy_common) == guided_summary['common_comparison_scenarios']
+          assert [e.config.name for e in legacy_frontier] == [
+              e.config.name for e in guided_frontier
+          ]
+
+          before = {e.config.name: e for e in legacy_evaluations}
+          after = {e.config.name: e for e in guided_evaluations}
+          assert before.keys() == after.keys()
+
+          for name in before:
+              a = before[name]
+              b = after[name]
+              assert a.success_count == b.success_count, name
+              assert a.failure_names == b.failure_names, name
+              if a.comparison_objective is None or b.comparison_objective is None:
+                  assert a.comparison_objective == b.comparison_objective
+              else:
+                  assert abs(a.comparison_objective - b.comparison_objective) < 1e-12
+
+              diag = next(
+                  item for item in guided_summary['configs']
+                  if item['name'] == name
+              )
+              classified = (
+                  diag['feasible_candidate_total']
+                  + diag['curvature_reject_total']
+                  + diag['clearance_reject_total']
+                  + diag['road_boundary_reject_total']
+              )
+              assert diag['generated_candidate_total'] == classified, name
+
+          print('Guided Stage A exactly matches legacy Stage A logic.')
+          print(f'Max coverage: {legacy_max}/{len(scenarios)}')
+          print('Pareto:', [e.config.name for e in legacy_frontier])
           PY
-      - name: Run guided strict flow
-        run: python -m scripts.planning.run_sampling_tuning_guided --mode strict
+      - name: Run guided CLI modes
+        run: |
+          python -m scripts.planning.run_sampling_tuning_guided --mode structure
+          python -m scripts.planning.run_sampling_tuning_guided --mode strict
       - name: Planner regressions
         run: |
           python -m scripts.planning.validate_sampling_planner
