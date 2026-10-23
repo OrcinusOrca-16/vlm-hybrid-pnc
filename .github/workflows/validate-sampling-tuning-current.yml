@@ -1,0 +1,173 @@
+name: Validate Sampling tuning current
+
+on:
+  push:
+    branches:
+      - validate/sampling-tuning-current
+    paths:
+      - .github/workflows/validate-sampling-tuning-current.yml
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout current
+        uses: actions/checkout@v4
+        with:
+          ref: validate/sampling-tuning-current
+          path: current
+
+      - name: Checkout pre-upgrade baseline
+        uses: actions/checkout@v4
+        with:
+          ref: edd3d89b358492bee35e9958947c2a795a0ff447
+          path: baseline
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        working-directory: current
+        run: pip install -r requirements.txt
+
+      - name: Compile current tuning runner
+        working-directory: current
+        run: python -m py_compile scripts/planning/run_sampling_tuning.py
+
+      - name: Run historical baseline tuning
+        working-directory: baseline
+        run: python -m scripts.planning.run_sampling_tuning
+
+      - name: Run current default tuning
+        working-directory: current
+        run: python -m scripts.planning.run_sampling_tuning
+
+      - name: Compare deterministic default-tuning results
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          old = json.loads(Path('baseline/outputs/tuning/sampling_tuning_summary.json').read_text())
+          new = json.loads(Path('current/outputs/tuning/sampling_tuning_summary.json').read_text())
+
+          assert old['initial_state_invalid_scenarios'] == new['initial_state_invalid_scenarios']
+
+          for stage_name in ('stage_a_structure', 'stage_b_terminal'):
+              a = old[stage_name]
+              b = new[stage_name]
+              assert a['max_success_count'] == b['max_success_count']
+              assert a['total_active_scenarios'] == b['total_active_scenarios']
+              assert a['common_comparison_scenarios'] == b['common_comparison_scenarios']
+
+              old_by_name = {c['name']: c for c in a['configs']}
+              new_by_name = {c['name']: c for c in b['configs']}
+              common = sorted(old_by_name.keys() & new_by_name.keys())
+              assert common
+              for name in common:
+                  x = old_by_name[name]
+                  y = new_by_name[name]
+                  for key in ('candidate_count', 'success_count', 'total_count', 'failure_names'):
+                      assert x[key] == y[key], (stage_name, name, key, x[key], y[key])
+                  for key in (
+                      'mean_success_objective',
+                      'comparison_objective',
+                      'mean_rms_lateral_deviation_m',
+                      'minimum_clearance_over_successes_m',
+                      'maximum_curvature_over_successes_per_m',
+                      'mean_rms_curvature_per_m',
+                      'mean_rms_curvature_rate_per_m2',
+                  ):
+                      xv = x.get(key)
+                      yv = y.get(key)
+                      if xv is None or yv is None:
+                          assert xv == yv
+                      else:
+                          assert abs(xv - yv) < 1e-12, (stage_name, name, key, xv, yv)
+
+          old_profiles = old['stage_c_weight_sensitivity']['profiles']
+          new_profiles = new['stage_c_weight_sensitivity']['profiles']
+          old_profiles = {(p['config_name'], p['profile_name']): p for p in old_profiles}
+          new_profiles = {(p['config_name'], p['profile_name']): p for p in new_profiles}
+          common_profiles = sorted(old_profiles.keys() & new_profiles.keys())
+          assert common_profiles
+          for key in common_profiles:
+              x = old_profiles[key]
+              y = new_profiles[key]
+              assert x['weights'] == y['weights']
+              assert x['success_count'] == y['success_count']
+              assert x['total_count'] == y['total_count']
+              for metric in (
+                  'mean_canonical_objective',
+                  'mean_rms_lateral_deviation_m',
+                  'minimum_clearance_over_successes_m',
+                  'maximum_curvature_over_successes_per_m',
+                  'mean_rms_curvature_per_m',
+                  'mean_rms_curvature_rate_per_m2',
+              ):
+                  xv = x.get(metric)
+                  yv = y.get(metric)
+                  if xv is None or yv is None:
+                      assert xv == yv
+                  else:
+                      assert abs(xv - yv) < 1e-12, (key, metric, xv, yv)
+
+          print('Default tuning deterministic results match the pre-upgrade baseline for all common evaluated configs/profiles.')
+          print('Runtime and Pareto membership are excluded because single-run timing noise can change frontier membership.')
+          PY
+
+      - name: Validate Stage-A diagnostics mode
+        working-directory: current
+        run: |
+          python -m scripts.planning.run_sampling_tuning --stop-after-structure
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('outputs/tuning/sampling_tuning_summary.json').read_text())
+          assert 'stage_a_structure' in data
+          assert 'stage_b_terminal' not in data
+          assert 'stage_c_weight_sensitivity' not in data
+          assert data['metadata']['candidate_diagnostics_enabled'] is True
+          for config in data['stage_a_structure']['configs']:
+              total = config['total_generated_candidate_count']
+              classified = (
+                  config['total_feasible_candidate_count']
+                  + config['total_curvature_reject_count']
+                  + config['total_clearance_reject_count']
+                  + config['total_road_boundary_reject_count']
+              )
+              assert total == classified, (config['name'], total, classified)
+              assert config['mean_feasible_ratio'] is not None
+          print('Stage-A candidate diagnostics are internally consistent.')
+          PY
+
+      - name: Validate skip-terminal mode
+        working-directory: current
+        run: |
+          python -m scripts.planning.run_sampling_tuning --skip-terminal
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('outputs/tuning/sampling_tuning_summary.json').read_text())
+          assert 'stage_a_structure' in data
+          assert 'stage_b_terminal' in data
+          assert 'stage_c_weight_sensitivity' in data
+          assert data['metadata']['skip_terminal'] is True
+          assert data['metadata']['candidate_diagnostics_enabled'] is False
+          print('Skip-terminal path completed successfully.')
+          PY
+
+      - name: Run relevant regressions
+        working-directory: current
+        run: |
+          python -m scripts.planning.validate_reference_line
+          python -m scripts.planning.validate_frenet
+          python -m scripts.planning.validate_sampling_planner
+          python -m scripts.planning.validate_sampling_benchmark_adapter
+          python -m scripts.planning.validate_tuning_objective_separation
+          python -m scripts.planning.validate_canonical_benchmark
+          python -m scripts.planning.validate_discrete_scenario_benchmark
+          python -m scripts.planning.validate_stress_benchmark
