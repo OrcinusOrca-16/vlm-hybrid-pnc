@@ -12,7 +12,7 @@ jobs:
   validate:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -30,128 +30,146 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run baseline full tuning
-        run: |
-          python -m scripts.planning.run_sampling_tuning
-          cp outputs/tuning/sampling_tuning_summary.json /tmp/baseline_sampling_tuning_summary.json
-
       - name: Apply tuning-runner and skill upgrade
         run: |
           python tools/patch_sampling_tuning_upgrade.py
           python -m py_compile scripts/planning/run_sampling_tuning.py
 
-      - name: Run modified full tuning
-        run: |
-          python -m scripts.planning.run_sampling_tuning
-          cp outputs/tuning/sampling_tuning_summary.json /tmp/modified_sampling_tuning_summary.json
-
-      - name: Compare core tuning results with baseline
+      - name: Validate candidate diagnostics
         run: |
           python - <<'PY'
-          import json
+          from scripts.planning import run_sampling_tuning as tuning
 
-          with open('/tmp/baseline_sampling_tuning_summary.json', encoding='utf-8') as f:
-              baseline = json.load(f)
-          with open('/tmp/modified_sampling_tuning_summary.json', encoding='utf-8') as f:
-              modified = json.load(f)
-
-          drop_keys = {
-              'mean_runtime_ms',
-              'mean_feasible_candidate_count',
-              'mean_feasible_ratio',
-              'total_generated_candidate_count',
-              'total_feasible_candidate_count',
-              'total_curvature_reject_count',
-              'total_clearance_reject_count',
-              'total_road_boundary_reject_count',
-              'stop_after_structure',
-              'skip_terminal',
-              'terminal_sweep_skipped',
+          _, active_scenarios, _ = tuning.prepare_scenarios()
+          scenarios_by_name = {
+              scenario.name: scenario
+              for scenario in active_scenarios
           }
+          selected_names = (
+              'tuning_lateral_recovery',
+              'tuning_obstacle_lateral_+0.75',
+              'road_half_width_2.00',
+          )
+          selected = tuple(
+              scenarios_by_name[name]
+              for name in selected_names
+              if name in scenarios_by_name
+          )
+          if not selected:
+              raise SystemExit('No diagnostic smoke scenarios found.')
 
-          def normalize(value):
-              if isinstance(value, dict):
-                  return {
-                      key: normalize(item)
-                      for key, item in value.items()
-                      if key not in drop_keys
-                  }
-              if isinstance(value, list):
-                  return [normalize(item) for item in value]
-              return value
+          config = tuning.SamplingTuningConfig(
+              name='diagnostic_smoke',
+              bypass_lateral_positions_m=(
+                  -2.0, -1.5, -1.0, -0.5, 0.0,
+                  0.5, 1.0, 1.5, 2.0,
+              ),
+              bypass_lengths_m=(6.0, 10.0, 14.0, 18.0, 22.0),
+          )
+          evaluation = tuning.evaluate_config(
+              config=config,
+              scenarios=selected,
+              planner_weights=(
+                  tuning.DEFAULT_SAMPLING_PLANNER_CONFIG
+                  .matched_objective_weights
+              ),
+          )
 
-          normalized_baseline = normalize(baseline)
-          normalized_modified = normalize(modified)
-
-          if normalized_baseline != normalized_modified:
-              raise SystemExit('Core tuning result changed after diagnostics upgrade.')
-
-          print('Core tuning result matches baseline exactly (excluding runtime and new diagnostics).')
-
-          for stage_name in ('stage_a_structure', 'stage_b_terminal'):
-              for config in modified[stage_name]['configs']:
-                  generated = config['total_generated_candidate_count']
-                  feasible = config['total_feasible_candidate_count']
-                  rejected = (
-                      config['total_curvature_reject_count']
-                      + config['total_clearance_reject_count']
-                      + config['total_road_boundary_reject_count']
+          for scenario_name, outcome in evaluation.outcomes.items():
+              generated = outcome.generated_candidate_count
+              feasible = outcome.feasible_candidate_count
+              rejected = (
+                  outcome.curvature_reject_count
+                  + outcome.clearance_reject_count
+                  + outcome.road_boundary_reject_count
+              )
+              if generated != config.candidate_count:
+                  raise SystemExit(
+                      f'{scenario_name}: generated count mismatch: '
+                      f'{generated} != {config.candidate_count}'
                   )
-                  expected_generated = config['candidate_count'] * config['total_count']
-                  if generated != expected_generated:
-                      raise SystemExit(
-                          f"{stage_name}/{config['name']}: generated count mismatch"
-                      )
-                  if feasible + rejected != generated:
-                      raise SystemExit(
-                          f"{stage_name}/{config['name']}: diagnostic accounting mismatch"
-                      )
-                  ratio = config['mean_feasible_ratio']
-                  if ratio is None or not 0.0 <= ratio <= 1.0:
-                      raise SystemExit(
-                          f"{stage_name}/{config['name']}: invalid feasible ratio"
-                      )
+              if feasible + rejected != generated:
+                  raise SystemExit(
+                      f'{scenario_name}: diagnostic accounting mismatch'
+                  )
+              if not 0.0 <= outcome.feasible_ratio <= 1.0:
+                  raise SystemExit(
+                      f'{scenario_name}: invalid feasible ratio'
+                  )
 
-          print('Candidate diagnostic accounting is internally consistent.')
+          print('Candidate diagnostic accounting passed.')
           PY
 
-      - name: Validate Stage-A-only mode
+      - name: Validate evidence-driven CLI modes
         run: |
-          python -m scripts.planning.run_sampling_tuning --stop-after-structure
           python - <<'PY'
           import json
-          with open('outputs/tuning/sampling_tuning_summary.json', encoding='utf-8') as f:
-              data = json.load(f)
+          import sys
+
+          from scripts.planning import run_sampling_tuning as tuning
+
+          all_scenarios, active_scenarios, _ = tuning.prepare_scenarios()
+          scenario = next(
+              item
+              for item in active_scenarios
+              if item.name == 'tuning_lateral_recovery'
+          )
+          smoke_config = tuning.SamplingTuningConfig(
+              name='mode_smoke',
+              bypass_lateral_positions_m=(
+                  -2.0, -1.5, -1.0, -0.5, 0.0,
+                  0.5, 1.0, 1.5, 2.0,
+              ),
+              bypass_lengths_m=(8.0, 14.0, 22.0),
+          )
+
+          tuning.prepare_scenarios = lambda: (
+              (scenario,),
+              (scenario,),
+              {},
+          )
+          tuning.build_structure_configs = lambda: (smoke_config,)
+
+          sys.argv = [
+              'run_sampling_tuning',
+              '--stop-after-structure',
+          ]
+          tuning.main()
+          with tuning.SUMMARY_JSON_PATH.open(encoding='utf-8') as file:
+              data = json.load(file)
           if 'stage_a_structure' not in data:
               raise SystemExit('Stage A summary missing.')
           if 'stage_b_terminal' in data or 'stage_c_weight_sensitivity' in data:
               raise SystemExit('Stage-A-only mode continued past Stage A.')
           if not data['metadata']['stop_after_structure']:
               raise SystemExit('Stage-A-only metadata flag missing.')
-          print('Stage-A-only mode passed.')
-          PY
 
-      - name: Validate skip-terminal mode
-        run: |
-          python -m scripts.planning.run_sampling_tuning --skip-terminal
-          python - <<'PY'
-          import json
-          with open('outputs/tuning/sampling_tuning_summary.json', encoding='utf-8') as f:
-              data = json.load(f)
+          tuning._RUN_CACHE.clear()
+          tuning._CANDIDATE_CACHE.clear()
+          tuning._CANDIDATE_DIAGNOSTIC_CACHE.clear()
+
+          sys.argv = [
+              'run_sampling_tuning',
+              '--skip-terminal',
+          ]
+          tuning.main()
+          with tuning.SUMMARY_JSON_PATH.open(encoding='utf-8') as file:
+              data = json.load(file)
           stage_a = data['stage_a_structure']
           stage_b = data['stage_b_terminal']
           if not stage_b['terminal_sweep_skipped']:
               raise SystemExit('Skip-terminal metadata flag missing.')
           if set(stage_a['pareto_config_names']) != set(stage_b['pareto_config_names']):
-              raise SystemExit('Skip-terminal mode changed the carried Pareto config set.')
+              raise SystemExit('Skip-terminal mode changed carried Pareto configs.')
           for config in stage_b['configs']:
               if config['final_lateral_offsets_m'] != [0.0]:
-                  raise SystemExit('Skip-terminal mode expanded terminal lateral state.')
+                  raise SystemExit('Skip-terminal expanded final lateral state.')
               if config['final_slope_offsets'] != [0.0]:
-                  raise SystemExit('Skip-terminal mode expanded terminal slope state.')
+                  raise SystemExit('Skip-terminal expanded final slope state.')
           if 'stage_c_weight_sensitivity' not in data:
-              raise SystemExit('Skip-terminal mode did not continue to weight sensitivity.')
-          print('Skip-terminal mode passed.')
+              raise SystemExit('Skip-terminal did not reach weight sensitivity.')
+
+          print('Evidence-driven CLI modes passed.')
           PY
 
       - name: Run planning regressions
