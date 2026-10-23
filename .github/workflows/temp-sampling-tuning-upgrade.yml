@@ -1,0 +1,305 @@
+name: Temporary Sampling tuning upgrade validation
+
+on:
+  push:
+    branches:
+      - chore/sampling-tuning-diagnostics
+    paths:
+      - .github/workflows/temp-sampling-tuning-upgrade.yml
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chore/sampling-tuning-diagnostics
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run historical Sampling tuning baseline
+        run: |
+          python -m scripts.planning.run_sampling_tuning
+          cp outputs/tuning/sampling_tuning_summary.json /tmp/sampling_baseline.json
+
+      - name: Apply Sampling tuning diagnostics upgrade
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          runner_path = Path('scripts/planning/run_sampling_tuning.py')
+          text = runner_path.read_text(encoding='utf-8')
+
+          def replace_once(old: str, new: str) -> None:
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f'Expected one match, got {count}: {old[:80]!r}')
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              'from __future__ import annotations\n\nimport csv\n',
+              'from __future__ import annotations\n\nimport argparse\nimport csv\n',
+          )
+
+          replace_once(
+              'from src.planning.hard_constraints import (\n    filter_feasible_candidates,\n    obstacle_clearance,\n)\n',
+              'from src.planning.hard_constraints import (\n    is_curvature_feasible,\n    is_obstacle_clearance_feasible,\n    is_road_boundary_feasible,\n    obstacle_clearance,\n)\n',
+          )
+
+          marker = '@dataclass(frozen=True)\nclass CaseOutcome:\n'
+          diagnostic_block = '''@dataclass(frozen=True)\nclass CandidateDiagnostics:\n    generated_candidate_count: int\n    feasible_candidate_count: int\n    curvature_reject_count: int\n    clearance_reject_count: int\n    road_boundary_reject_count: int\n\n    @property\n    def feasible_ratio(self) -> float:\n        if self.generated_candidate_count == 0:\n            return 0.0\n        return (\n            self.feasible_candidate_count\n            / self.generated_candidate_count\n        )\n\n\n'''
+          replace_once(marker, diagnostic_block + marker)
+
+          replace_once(
+              '    rms_curvature_rate_per_m2: (\n        float\n        | None\n    )\n\n\n@dataclass\nclass ConfigEvaluation:',
+              '    rms_curvature_rate_per_m2: (\n        float\n        | None\n    )\n\n    generated_candidate_count: int | None = None\n    feasible_candidate_count: int | None = None\n    curvature_reject_count: int | None = None\n    clearance_reject_count: int | None = None\n    road_boundary_reject_count: int | None = None\n\n\n@dataclass\nclass ConfigEvaluation:',
+          )
+
+          config_eval_marker = '''    @property\n    def mean_success_objective(\n        self,\n    ) -> float | None:\n'''
+          config_eval_insert = '''    @property\n    def generated_candidate_total(self) -> int:\n        return sum(\n            outcome.generated_candidate_count or 0\n            for outcome in self.outcomes.values()\n        )\n\n    @property\n    def feasible_candidate_total(self) -> int:\n        return sum(\n            outcome.feasible_candidate_count or 0\n            for outcome in self.outcomes.values()\n        )\n\n    @property\n    def feasible_ratio(self) -> float:\n        if self.generated_candidate_total == 0:\n            return 0.0\n        return (\n            self.feasible_candidate_total\n            / self.generated_candidate_total\n        )\n\n'''
+          replace_once(config_eval_marker, config_eval_insert + config_eval_marker)
+
+          cache_marker = '''_CANDIDATE_CACHE: dict[\n    tuple[\n        SamplingTuningConfig,\n        str,\n    ],\n    list[\n        tuple[\n            FrenetTrajectory,\n            list[PathPoint],\n        ]\n    ],\n] = {}\n'''
+          cache_replacement = '''_CANDIDATE_CACHE: dict[\n    tuple[\n        SamplingTuningConfig,\n        str,\n    ],\n    tuple[\n        list[\n            tuple[\n                FrenetTrajectory,\n                list[PathPoint],\n            ]\n        ],\n        CandidateDiagnostics,\n    ],\n] = {}\n'''
+          replace_once(cache_marker, cache_replacement)
+
+          prepare_marker = '\ndef outcome_from_metrics(\n'
+          diagnostic_functions = '''\ndef attach_candidate_diagnostics(\n    outcome: CaseOutcome,\n    diagnostics: CandidateDiagnostics,\n) -> CaseOutcome:\n    return replace(\n        outcome,\n        generated_candidate_count=(\n            diagnostics.generated_candidate_count\n        ),\n        feasible_candidate_count=(\n            diagnostics.feasible_candidate_count\n        ),\n        curvature_reject_count=(\n            diagnostics.curvature_reject_count\n        ),\n        clearance_reject_count=(\n            diagnostics.clearance_reject_count\n        ),\n        road_boundary_reject_count=(\n            diagnostics.road_boundary_reject_count\n        ),\n    )\n\n\ndef parse_args() -> argparse.Namespace:\n    parser = argparse.ArgumentParser(\n        description=(\n            "Run Sampling Planner tuning experiments."\n        )\n    )\n    parser.add_argument(\n        "--stop-after-structure",\n        action="store_true",\n        help=(\n            "Run Stage A only so its diagnostics can be "\n            "reviewed before deciding whether terminal-state "\n            "expansion is justified."\n        ),\n    )\n    parser.add_argument(\n        "--skip-terminal",\n        action="store_true",\n        help=(\n            "Keep strict terminal states and pass the Stage-A "\n            "Pareto configs directly through Stage B before "\n            "weight sensitivity."\n        ),\n    )\n    return parser.parse_args()\n\n'''
+          replace_once(prepare_marker, diagnostic_functions + prepare_marker)
+
+          old_eval = '''    for scenario in scenarios:\n        outcomes[\n            scenario.name\n        ] = (\n            run_one_scenario(\n                config=config,\n                scenario=scenario,\n                planner_weights=(\n                    planner_weights\n                ),\n            )\n        )\n'''
+          new_eval = '''    for scenario in scenarios:\n        outcome = (\n            run_one_scenario(\n                config=config,\n                scenario=scenario,\n                planner_weights=(\n                    planner_weights\n                ),\n            )\n        )\n\n        (\n            _feasible_candidates,\n            diagnostics,\n        ) = build_candidate_pool(\n            config=config,\n            scenario=scenario,\n        )\n\n        outcomes[\n            scenario.name\n        ] = attach_candidate_diagnostics(\n            outcome=outcome,\n            diagnostics=diagnostics,\n        )\n'''
+          replace_once(old_eval, new_eval)
+
+          old_pool_sig = '''def build_candidate_pool(\n    config: SamplingTuningConfig,\n    scenario: BenchmarkScenario,\n) -> list[\n    tuple[\n        FrenetTrajectory,\n        list[PathPoint],\n    ]\n]:\n'''
+          new_pool_sig = '''def build_candidate_pool(\n    config: SamplingTuningConfig,\n    scenario: BenchmarkScenario,\n) -> tuple[\n    list[\n        tuple[\n            FrenetTrajectory,\n            list[PathPoint],\n        ]\n    ],\n    CandidateDiagnostics,\n]:\n'''
+          replace_once(old_pool_sig, new_pool_sig)
+
+          old_filter = '''    feasible_candidates = (\n        filter_feasible_candidates(\n            trajectories=trajectories,\n            paths=paths,\n            vehicle_params=(\n                scenario.vehicle_params\n            ),\n            obstacles=list(\n                scenario.obstacles\n            ),\n            max_curvature=(\n                scenario.max_curvature\n            ),\n            minimum_clearance_m=(\n                scenario.minimum_clearance_m\n            ),\n            min_l=(\n                scenario.road_min_l\n            ),\n            max_l=(\n                scenario.road_max_l\n            ),\n        )\n    )\n\n    _CANDIDATE_CACHE[\n        cache_key\n    ] = feasible_candidates\n\n    return feasible_candidates\n'''
+          new_filter = '''    feasible_candidates = []\n    curvature_reject_count = 0\n    clearance_reject_count = 0\n    road_boundary_reject_count = 0\n\n    for trajectory, path in zip(\n        trajectories,\n        paths,\n    ):\n        if not is_curvature_feasible(\n            path=path,\n            max_curvature=(\n                scenario.max_curvature\n            ),\n        ):\n            curvature_reject_count += 1\n            continue\n\n        if not is_obstacle_clearance_feasible(\n            path=path,\n            vehicle_params=(\n                scenario.vehicle_params\n            ),\n            obstacles=list(\n                scenario.obstacles\n            ),\n            minimum_clearance_m=(\n                scenario.minimum_clearance_m\n            ),\n        ):\n            clearance_reject_count += 1\n            continue\n\n        if not is_road_boundary_feasible(\n            trajectory=trajectory,\n            vehicle_params=(\n                scenario.vehicle_params\n            ),\n            min_l=(\n                scenario.road_min_l\n            ),\n            max_l=(\n                scenario.road_max_l\n            ),\n        ):\n            road_boundary_reject_count += 1\n            continue\n\n        feasible_candidates.append(\n            (trajectory, path)\n        )\n\n    diagnostics = CandidateDiagnostics(\n        generated_candidate_count=len(trajectories),\n        feasible_candidate_count=len(feasible_candidates),\n        curvature_reject_count=curvature_reject_count,\n        clearance_reject_count=clearance_reject_count,\n        road_boundary_reject_count=(\n            road_boundary_reject_count\n        ),\n    )\n\n    if (\n        diagnostics.feasible_candidate_count\n        + diagnostics.curvature_reject_count\n        + diagnostics.clearance_reject_count\n        + diagnostics.road_boundary_reject_count\n        != diagnostics.generated_candidate_count\n    ):\n        raise RuntimeError(\n            "Candidate diagnostic counts do not sum to "\n            "the generated candidate count."\n        )\n\n    cached_value = (\n        feasible_candidates,\n        diagnostics,\n    )\n\n    _CANDIDATE_CACHE[\n        cache_key\n    ] = cached_value\n\n    return cached_value\n'''
+          replace_once(old_filter, new_filter)
+
+          replace_once(
+              '''        feasible_candidates = (\n            build_candidate_pool(\n                config=config,\n                scenario=scenario,\n            )\n        )\n''',
+              '''        (\n            feasible_candidates,\n            diagnostics,\n        ) = build_candidate_pool(\n            config=config,\n            scenario=scenario,\n        )\n''',
+          )
+
+          replace_once(
+              '''            case_results.append(\n                (\n                    scenario,\n                    outcome,\n                )\n            )\n\n            continue\n''',
+              '''            outcome = attach_candidate_diagnostics(\n                outcome=outcome,\n                diagnostics=diagnostics,\n            )\n\n            case_results.append(\n                (\n                    scenario,\n                    outcome,\n                )\n            )\n\n            continue\n''',
+          )
+
+          replace_once(
+              '''        outcome = replace(\n            outcome,\n            planning_time_ms=None,\n        )\n\n        case_results.append(\n''',
+              '''        outcome = replace(\n            outcome,\n            planning_time_ms=None,\n        )\n\n        outcome = attach_candidate_diagnostics(\n            outcome=outcome,\n            diagnostics=diagnostics,\n        )\n\n        case_results.append(\n''',
+          )
+
+          summary_anchor = '''        "comparison_objective": (\n            evaluation\n            .comparison_objective\n        ),\n'''
+          summary_diag = '''        "generated_candidate_total": (\n            evaluation.generated_candidate_total\n        ),\n        "feasible_candidate_total": (\n            evaluation.feasible_candidate_total\n        ),\n        "feasible_ratio": (\n            evaluation.feasible_ratio\n        ),\n        "curvature_reject_total": sum(\n            outcome.curvature_reject_count or 0\n            for outcome in evaluation.outcomes.values()\n        ),\n        "clearance_reject_total": sum(\n            outcome.clearance_reject_count or 0\n            for outcome in evaluation.outcomes.values()\n        ),\n        "road_boundary_reject_total": sum(\n            outcome.road_boundary_reject_count or 0\n            for outcome in evaluation.outcomes.values()\n        ),\n'''
+          replace_once(summary_anchor, summary_anchor + summary_diag)
+
+          for row_anchor in [
+              '''                "candidate_count": (\n                    config.candidate_count\n                ),\n''',
+              '''                "candidate_count": (\n                    config.candidate_count\n                ),\n''',
+          ]:
+              if text.count(row_anchor) < 1:
+                  raise RuntimeError('candidate_count row anchor missing')
+              row_diag = '''                "generated_candidate_count": (\n                    outcome.generated_candidate_count\n                ),\n                "feasible_candidate_count": (\n                    outcome.feasible_candidate_count\n                ),\n                "feasible_ratio": (\n                    None\n                    if outcome.generated_candidate_count in (None, 0)\n                    else (\n                        outcome.feasible_candidate_count\n                        / outcome.generated_candidate_count\n                    )\n                ),\n                "curvature_reject_count": (\n                    outcome.curvature_reject_count\n                ),\n                "clearance_reject_count": (\n                    outcome.clearance_reject_count\n                ),\n                "road_boundary_reject_count": (\n                    outcome.road_boundary_reject_count\n                ),\n'''
+              text = text.replace(row_anchor, row_anchor + row_diag, 1)
+
+          replace_once(
+              '''        "candidate_count",\n        "bypass_lateral_positions_m",\n''',
+              '''        "candidate_count",\n        "generated_candidate_count",\n        "feasible_candidate_count",\n        "feasible_ratio",\n        "curvature_reject_count",\n        "clearance_reject_count",\n        "road_boundary_reject_count",\n        "bypass_lateral_positions_m",\n''',
+          )
+
+          replace_once(
+              'def main() -> None:\n    (\n',
+              'def main() -> None:\n    args = parse_args()\n\n    (\n',
+          )
+
+          stage_a_summary_end = '''    summary[\n        "stage_a_structure"\n    ] = {\n        "max_success_count": (\n            stage_a_max_success\n        ),\n        "total_active_scenarios": (\n            len(\n                active_scenarios\n            )\n        ),\n        "common_comparison_scenarios": sorted(\n            stage_a_common_names\n        ),\n        "pareto_config_names": [\n            evaluation.config.name\n            for evaluation\n            in stage_a_pareto\n        ],\n        "configs": [\n            evaluation_summary(\n                evaluation\n            )\n            for evaluation\n            in stage_a_evaluations\n        ],\n    }\n\n'''
+          stage_a_early = '''    if args.stop_after_structure:\n        write_results_csv(\n            csv_rows\n        )\n        write_summary_json(\n            summary\n        )\n\n        print()\n        print(\n            "Stopped after Stage A as requested."\n        )\n        print(\n            "Inspect candidate feasibility and pruning "\n            "diagnostics before deciding whether terminal "\n            "state expansion is justified."\n        )\n        return\n\n'''
+          replace_once(stage_a_summary_end, stage_a_summary_end + stage_a_early)
+
+          old_terminal_build = '''    terminal_configs = []\n\n    for evaluation in (\n        stage_a_pareto\n    ):\n        terminal_configs.extend(\n            build_terminal_variants(\n                evaluation.config\n            )\n        )\n\n    terminal_configs = (\n        unique_configs(\n            terminal_configs\n        )\n    )\n'''
+          new_terminal_build = '''    if args.skip_terminal:\n        print(\n            "  strict terminal state retained; "\n            "terminal expansion skipped by request"\n        )\n        terminal_configs = [\n            evaluation.config\n            for evaluation in stage_a_pareto\n        ]\n    else:\n        terminal_configs = []\n\n        for evaluation in (\n            stage_a_pareto\n        ):\n            terminal_configs.extend(\n                build_terminal_variants(\n                    evaluation.config\n                )\n            )\n\n        terminal_configs = (\n            unique_configs(\n                terminal_configs\n            )\n        )\n'''
+          replace_once(old_terminal_build, new_terminal_build)
+
+          runner_path.write_text(text, encoding='utf-8')
+
+          skill_path = Path('.agents/skills/sampling-planner-tuning/SKILL.md')
+          skill = skill_path.read_text(encoding='utf-8')
+
+          def skill_replace(old: str, new: str) -> None:
+              global skill
+              count = skill.count(old)
+              if count != 1:
+                  raise RuntimeError(f'Skill replacement expected once, got {count}: {old[:80]!r}')
+              skill = skill.replace(old, new, 1)
+
+          skill_replace(
+              '## What may be tuned\n',
+              '''## Pre-tuning sanity check\n\nBefore changing Sampling parameters, confirm that:\n\n- the reference path is sufficiently smooth for Frenet polynomial generation;\n- Frenet projection is locally well behaved for the active scenarios;\n- initial states are physically valid or explicitly excluded with a recorded reason;\n- physical-validation discretization is understood and is not being changed merely to improve apparent success.\n\nThe current Sampling Planner is a spatial path planner over `l(s)`. Do not introduce time-horizon, target-speed, or longitudinal-state sampling unless the planner scope is explicitly extended to spatiotemporal trajectory planning.\n\nIf these preconditions are already satisfied by the repository, record that fact and continue; do not create unnecessary reference-line tuning work.\n\n## What may be tuned\n''',
+          )
+
+          skill_replace(
+              '''For each config, record at least:\n\n- candidate count;\n- success count and failure names;\n''',
+              '''For each config, record at least:\n\n- generated candidate count;\n- feasible candidate count and feasible ratio;\n- mutually exclusive pruning counts for curvature, obstacle clearance, and road boundary;\n- success count and failure names;\n''',
+          )
+
+          skill_replace(
+              '''Prefer a targeted structural sweep over blindly exploding all dimensions at once.\n\nHistorical evidence from this repository suggests bypass-length diversity can provide more value than simply densifying the lateral grid. Treat this as a prior, not a permanent rule: rerun the evidence if scenarios or planner formulation have materially changed.\n\n### Stage B — Terminal-state sampling\n\nAfter a promising structural family is identified, test terminal target density:\n''',
+              '''Prefer a targeted structural sweep over blindly exploding all dimensions at once. Use candidate-level pruning diagnostics to distinguish insufficient sampling density from a candidate family that is fundamentally mismatched to the scenario geometry. If denser sampling adds candidates without improving feasible ratio, coverage, or failure composition, do not keep densifying by default.\n\nHistorical evidence from this repository suggests bypass-length diversity can provide more value than simply densifying the lateral grid. Treat this as a prior, not a permanent rule: rerun the evidence if scenarios or planner formulation have materially changed. Structured, obstacle-aware, or scenario-conditioned sampling is optional future work when scenario diversity, horizon length, or candidate budget makes uniform sampling inefficient; it is not a mandatory tuning stage for the current two-stage bypass-and-return planner.\n\n### Stage B — Conditional terminal-state sampling\n\nRun the structural stage first with:\n\n`python -m scripts.planning.run_sampling_tuning --stop-after-structure`\n\nInspect scenario failures together with feasible ratio and pruning counts. Keep the strict terminal state by default. Expand terminal targets only when the evidence gives a concrete reason to suspect that strict rejoin conditions are limiting the feasible candidate family.\n\nIf no such evidence exists, continue with strict terminal states using:\n\n`python -m scripts.planning.run_sampling_tuning --skip-terminal`\n\nIf terminal-state expansion is justified, run the default full study and test terminal target density:\n''',
+          )
+
+          skill_replace(
+              '''- candidate count;\n- measured runtime.\n''',
+              '''- candidate count;\n- feasible ratio and pruning composition;\n- measured runtime.\n''',
+          )
+
+          skill_replace(
+              '''- experiments performed;\n- maximum coverage before and after;\n''',
+              '''- experiments performed;\n- candidate-level feasible ratio and pruning breakdown for important structural candidates;\n- maximum coverage before and after;\n''',
+          )
+
+          skill_path.write_text(skill, encoding='utf-8')
+
+          readme_path = Path('.agents/skills/README.md')
+          readme = readme_path.read_text(encoding='utf-8')
+          old = '- Sampling Planner search-space, terminal-state, matched-objective, candidate-count, runtime and freeze workflow.'
+          new = '- Sampling Planner search-space, candidate feasibility/pruning diagnostics, conditional terminal-state, matched-objective, runtime and freeze workflow.'
+          if readme.count(old) != 1:
+              raise RuntimeError('README Sampling skill summary anchor not found exactly once')
+          readme_path.write_text(readme.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Compile upgraded tuning runner
+        run: python -m py_compile scripts/planning/run_sampling_tuning.py
+
+      - name: Run upgraded default Sampling tuning
+        run: |
+          python -m scripts.planning.run_sampling_tuning
+          cp outputs/tuning/sampling_tuning_summary.json /tmp/sampling_upgraded.json
+
+      - name: Compare deterministic tuning results with baseline
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          baseline = json.loads(Path('/tmp/sampling_baseline.json').read_text())
+          upgraded = json.loads(Path('/tmp/sampling_upgraded.json').read_text())
+
+          def index_configs(stage):
+              return {item['name']: item for item in stage['configs']}
+
+          for stage_name in ('stage_a_structure', 'stage_b_terminal'):
+              before = baseline[stage_name]
+              after = upgraded[stage_name]
+              assert before['max_success_count'] == after['max_success_count']
+              assert before['total_active_scenarios'] == after['total_active_scenarios']
+              assert before['common_comparison_scenarios'] == after['common_comparison_scenarios']
+              before_configs = index_configs(before)
+              after_configs = index_configs(after)
+              assert before_configs.keys() == after_configs.keys()
+              for name in before_configs:
+                  b = before_configs[name]
+                  a = after_configs[name]
+                  for key in ('candidate_count', 'success_count', 'total_count', 'failure_names'):
+                      assert b[key] == a[key], (stage_name, name, key, b[key], a[key])
+                  for key in ('mean_success_objective', 'comparison_objective'):
+                      bv = b[key]
+                      av = a[key]
+                      if bv is None or av is None:
+                          assert bv == av
+                      else:
+                          assert abs(bv - av) < 1e-12, (stage_name, name, key, bv, av)
+                  generated = a['generated_candidate_total']
+                  feasible = a['feasible_candidate_total']
+                  rejected = (
+                      a['curvature_reject_total']
+                      + a['clearance_reject_total']
+                      + a['road_boundary_reject_total']
+                  )
+                  assert generated == feasible + rejected
+
+          b_profiles = baseline['stage_c_weight_sensitivity']['profiles']
+          a_profiles = upgraded['stage_c_weight_sensitivity']['profiles']
+          assert len(b_profiles) == len(a_profiles)
+          for b, a in zip(b_profiles, a_profiles):
+              assert b['config_name'] == a['config_name']
+              assert b['profile_name'] == a['profile_name']
+              assert b['weights'] == a['weights']
+              assert b['success_count'] == a['success_count']
+              assert b['total_count'] == a['total_count']
+              for key in (
+                  'mean_canonical_objective',
+                  'mean_rms_lateral_deviation_m',
+                  'minimum_clearance_over_successes_m',
+                  'maximum_curvature_over_successes_per_m',
+                  'mean_rms_curvature_per_m',
+                  'mean_rms_curvature_rate_per_m2',
+              ):
+                  bv = b[key]
+                  av = a[key]
+                  if bv is None or av is None:
+                      assert bv == av
+                  else:
+                      assert abs(bv - av) < 1e-12, (b['config_name'], b['profile_name'], key, bv, av)
+
+          print('Deterministic Sampling tuning results match the historical baseline.')
+          print('Runtime/Pareto ordering is intentionally not compared because measured runtime contains normal noise.')
+          PY
+
+      - name: Validate staged runner modes
+        run: |
+          python -m scripts.planning.run_sampling_tuning --stop-after-structure
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('outputs/tuning/sampling_tuning_summary.json').read_text())
+          assert 'stage_a_structure' in data
+          assert 'stage_b_terminal' not in data
+          assert 'stage_c_weight_sensitivity' not in data
+          print('Stage-A-only mode passed.')
+          PY
+
+          python -m scripts.planning.run_sampling_tuning --skip-terminal
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('outputs/tuning/sampling_tuning_summary.json').read_text())
+          assert 'stage_a_structure' in data
+          assert 'stage_b_terminal' in data
+          assert 'stage_c_weight_sensitivity' in data
+          print('Strict-terminal skip mode passed.')
+          PY
+
+      - name: Run planner regressions
+        run: |
+          python -m scripts.planning.validate_sampling_planner
+          python -m scripts.planning.validate_sampling_benchmark_adapter
+          python -m scripts.planning.validate_tuning_objective_separation
+          python -m scripts.planning.validate_canonical_benchmark
+          python -m scripts.planning.validate_discrete_scenario_benchmark
+          python -m scripts.planning.validate_stress_benchmark
+
+      - name: Commit validated upgrade to branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/planning/run_sampling_tuning.py .agents/skills/sampling-planner-tuning/SKILL.md .agents/skills/README.md
+          git commit -m 'Improve Sampling tuning diagnostics'
+          git push origin HEAD:chore/sampling-tuning-diagnostics
