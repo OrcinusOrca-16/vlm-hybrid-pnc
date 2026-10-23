@@ -1,13 +1,13 @@
 ---
 name: sampling-planner-tuning
-description: Autonomously tune the Sampling Planner in vlm-hybrid-pnc using the repository tuning engine, development scenarios, canonical metrics, iterative targeted sweeps, regression checks, config freeze, and a selectable Git finish mode. Never use held-out final-evaluation scenarios for tuning and never push.
+description: Autonomously tune the Sampling Planner in vlm-hybrid-pnc using the repository tuning engine, development scenarios, candidate feasibility diagnostics, canonical metrics, iterative targeted sweeps, regression checks, config freeze, and a selectable Git finish mode. Never use held-out final-evaluation scenarios for tuning and never push.
 ---
 
 # Sampling Planner Tuning
 
 Use this skill when the user asks an agent to tune, retune, calibrate, optimize, or systematically benchmark the Sampling Planner in the `vlm-hybrid-pnc` repository.
 
-The skill owns the tuning-engineer loop. The Python scripts own experiment execution and measurement.
+The skill owns the tuning-engineer loop. Python runners own experiment execution and measurement.
 
 Do not ask the user to manually run each sweep and paste results when the agent can run the scripts and inspect their CSV/JSON output directly.
 
@@ -33,23 +33,25 @@ Read at minimum:
 2. `src/config/planning.py`
 3. `src/benchmark/tuning_scenario_suite.py`
 4. `scripts/planning/run_sampling_tuning.py`
-5. `src/benchmark/sampling_adapter.py`
-6. `src/planning/sampling_planner.py`
-7. `src/planning/hard_constraints.py`
-8. `src/planning/path_objective.py`
-9. `src/planning/soft_cost.py`
-10. the canonical, discrete-scenario, stress and runtime benchmark scripts used by the current roadmap.
+5. `scripts/planning/run_sampling_tuning_guided.py`
+6. `src/benchmark/sampling_adapter.py`
+7. `src/planning/sampling_planner.py`
+8. `src/planning/hard_constraints.py`
+9. `src/planning/path_objective.py`
+10. `src/planning/soft_cost.py`
+11. the canonical, discrete-scenario, stress and runtime benchmark scripts used by the current roadmap.
 
 Treat `docs/roadmap.md` as the source of truth for current phase/status wording.
 
 Record the starting Git commit and inspect `git status --short` before edits. Preserve unrelated user changes.
 
-The tuning runner supports two evidence-driven control modes:
+The two Sampling tuning runners have different roles:
 
-- `python -m scripts.planning.run_sampling_tuning --stop-after-structure` runs Stage A only and writes candidate-level feasibility diagnostics.
-- `python -m scripts.planning.run_sampling_tuning --skip-terminal` carries the Stage-A Pareto frontier directly into weight sensitivity when terminal-state expansion is not justified.
+- `python -m scripts.planning.run_sampling_tuning` preserves the full historical A -> B -> C reproduction workflow.
+- `python -m scripts.planning.run_sampling_tuning_guided --mode structure` runs structural tuning with candidate-level feasibility/pruning diagnostics and stops for evidence review.
+- `python -m scripts.planning.run_sampling_tuning_guided --mode strict` retains strict terminal states and proceeds from the Stage-A Pareto frontier to weight sensitivity.
 
-Running the script without flags preserves the full historical A -> B -> C reproduction workflow.
+Use the guided runner for new agent-driven tuning. Keep the historical runner available for reproduction and for a justified terminal-state expansion study.
 
 ## Pre-tuning sanity check
 
@@ -93,7 +95,7 @@ The current planner is a spatial path sampler over `l(s)`. Do not introduce time
 
 Structured, obstacle-aware, or scenario-conditioned sampling is optional future work. Consider it when scenario diversity, horizon length, or candidate budget makes uniform sampling inefficient; do not add it automatically to the current two-stage bypass-and-return planner.
 
-Do not silently change common physical constraints, benchmark definitions, vehicle geometry, canonical evaluator formulas, scenario definitions, or the maneuver intent just to improve a result.
+Do not silently change common physical constraints, benchmark definitions, vehicle geometry, canonical evaluator formulas, scenario definitions, or maneuver intent just to improve a result.
 
 ## Tuning objective hierarchy
 
@@ -124,8 +126,9 @@ Operate autonomously in a loop:
 5. run the experiment;
 6. parse CSV/JSON outputs and failure cases;
 7. compare coverage first, then common-success canonical objective and physical metrics;
-8. decide whether the evidence supports another targeted sweep, a Pareto decision, or freeze;
-9. repeat until further search is no longer justified.
+8. use candidate-level feasibility/pruning diagnostics to decide whether more search density or a different candidate family is justified;
+9. decide whether the evidence supports terminal-state expansion, another targeted sweep, a Pareto decision, or freeze;
+10. repeat until further search is no longer justified.
 
 Do not repeatedly ask the user which obvious next sweep to run when repository evidence is sufficient to decide.
 
@@ -135,9 +138,11 @@ Adapt this to the current code, but preserve the conceptual ordering.
 
 ### Stage A — Structural search space
 
-Tune the candidate geometry before fine objective tuning.
+Start with:
 
-Explore combinations such as:
+`python -m scripts.planning.run_sampling_tuning_guided --mode structure`
+
+Tune candidate geometry before fine objective tuning. Explore combinations such as:
 
 - bypass lateral range;
 - lateral interval / sample density;
@@ -147,7 +152,7 @@ For each config, record at least:
 
 - generated candidate count;
 - feasible candidate count and feasible ratio;
-- exclusive pruning breakdown in validator order: curvature rejects, clearance rejects, then road-boundary rejects;
+- mutually exclusive pruning breakdown in validator order: curvature rejects, clearance rejects, then road-boundary rejects;
 - success count and failure names;
 - common-success canonical objective where comparable;
 - minimum clearance;
@@ -155,19 +160,27 @@ For each config, record at least:
 - curvature-rate metric;
 - runtime.
 
-Use candidate-level diagnostics to distinguish search-density limitations from candidate-family limitations. If a denser grid does not improve feasible ratio or materially change the pruning breakdown, do not keep increasing density without a new hypothesis.
+Use candidate-level diagnostics to distinguish search-density limitations from candidate-family limitations. If a denser grid adds many candidates but does not improve feasible ratio, coverage, or pruning composition, do not keep increasing density without a new hypothesis.
 
 Prefer a targeted structural sweep over blindly exploding all dimensions at once.
 
 Historical evidence from this repository suggests bypass-length diversity can provide more value than simply densifying the lateral grid. Treat this as a prior, not a permanent rule: rerun the evidence if scenarios or planner formulation have materially changed.
 
-Start a new tuning investigation with `--stop-after-structure` when practical so the Stage-A failure and pruning evidence can determine whether terminal expansion is worth running.
-
 ### Stage B — Conditional terminal-state sampling
 
-Keep the strict terminal state by default. Expand terminal target density only when Stage-A failure analysis gives a concrete reason to suspect that strict rejoin constraints are limiting feasible candidates. If no such evidence exists, use `--skip-terminal` and move directly to weight sensitivity.
+Keep the strict terminal state by default.
 
-When terminal expansion is justified, test:
+After Stage A, inspect scenario failures together with feasible ratio and pruning composition. Expand terminal target density only when the evidence gives a concrete reason to suspect that strict rejoin constraints are limiting the feasible candidate family.
+
+If no such evidence exists, continue with strict terminal states:
+
+`python -m scripts.planning.run_sampling_tuning_guided --mode strict`
+
+If terminal-state expansion is justified, use the historical full runner and compare the strict and expanded terminal variants:
+
+`python -m scripts.planning.run_sampling_tuning`
+
+When expansion is justified, test:
 
 - strict final `l=target`, final `l'=target`;
 - lateral terminal offsets when justified;
@@ -202,6 +215,7 @@ For non-dominated structural candidates, compare:
 - coverage;
 - common-success canonical objective;
 - physical quality;
+- feasible ratio and pruning composition;
 - candidate count;
 - measured runtime.
 
@@ -211,7 +225,7 @@ Do not invent a fixed acceptable percentage improvement unless the user or repos
 
 ## Failure analysis
 
-For every maximum-coverage frontier candidate, inspect failure names rather than only the aggregate count.
+For every maximum-coverage frontier candidate, inspect failure names rather than only aggregate count.
 
 Separate at least these concepts when the data supports them:
 
@@ -222,7 +236,9 @@ Separate at least these concepts when the data supports them:
 - search-space limitation / no sampled feasible candidate;
 - genuine implementation error.
 
-Do not label a scenario globally infeasible unless the repository evidence mathematically or geometrically proves that claim. Prefer precise wording such as `persistent geometry/search-family-limited` when that is all the evidence supports.
+The guided runner classifies candidate pruning in the same order as the common physical validator: curvature -> obstacle clearance -> road boundary. Treat these counts as mutually exclusive diagnostic categories, not independent tests.
+
+Do not label a scenario globally infeasible unless repository evidence mathematically or geometrically proves that claim. Prefer precise wording such as `persistent geometry/search-family-limited` when that is all the evidence supports.
 
 If a scenario is invalid at the initial state, exclude it from active tuning coverage only when the repository's tuning methodology explicitly performs that exclusion and records the reason.
 
@@ -230,23 +246,25 @@ If a scenario is invalid at the initial state, exclude it from active tuning cov
 
 - The canonical evaluator must remain independent of planner-internal tuning choices.
 - Do not change hard-constraint definitions during a parameter sweep unless the task is explicitly to fix a validated bug.
-- Do not change both the objective formulation and the tuning config in one opaque step. Keep formulation changes separate from parameter tuning.
+- Do not change both objective formulation and tuning config in one opaque step. Keep formulation changes separate from parameter tuning.
 - Keep benchmark timing boundaries consistent while comparing runtime.
-- If measurement noise appears meaningful, repeat runtime measurements rather than over-interpreting a single run.
+- If measurement noise appears meaningful, repeat runtime measurements rather than over-interpreting one run.
+- Candidate diagnostics are explanatory evidence; do not add feasible ratio to the existing Pareto objective automatically.
 - Do not automatically select a config solely because a generic Pareto helper happened to order it first.
 
 ## Stop conditions
 
-A tuning loop may stop and freeze when the evidence supports all of the following:
+A tuning loop may stop and freeze when evidence supports all of the following:
 
 - no targeted follow-up sweep has a reasonable hypothesis for improving maximum coverage or resolving an important trade-off;
 - remaining candidates are dominated or represent an explainable Pareto trade-off;
+- candidate-level pruning evidence does not justify further blind densification;
 - the chosen config is not relying on a methodological confound;
 - runtime is measured with the same benchmark timing scope;
 - the final config is simple enough to justify and explain in an interview;
 - all required development regressions pass.
 
-If two or more Pareto candidates remain genuinely incomparable because the choice requires a product preference that is not encoded in the repository, stop and present the trade-off instead of inventing a preference.
+If two or more Pareto candidates remain genuinely incomparable because the choice requires a product preference not encoded in the repository, stop and present the trade-off instead of inventing a preference.
 
 ## Freeze procedure
 
@@ -264,7 +282,7 @@ The skill may create or refine tuning automation scripts when needed, but prefer
 
 ## Regression interpretation
 
-A frozen configuration is not accepted merely because the tuning runner reports a better score.
+A frozen configuration is not accepted merely because a tuning runner reports a better score.
 
 Confirm:
 
@@ -273,9 +291,10 @@ Confirm:
 - stress benchmark behavior is understood;
 - runtime benchmark is stable enough to report;
 - failure names are consistent with the engineering explanation;
+- candidate diagnostic counts are internally consistent;
 - the canonical comparison metric still uses the common benchmark weights rather than planner-internal tuned weights.
 
-If regression changes expose a new bug, return to the experiment loop after fixing the bug. Do not tune around it.
+If regressions expose a new bug, return to the experiment loop after fixing the bug. Do not tune around it.
 
 ## Git finish modes
 
@@ -289,7 +308,7 @@ After all validation:
 
 - leave task edits unstaged;
 - run `git status --short`;
-- summarize the modified files and important diff;
+- summarize modified files and important diff;
 - do not run `git add`;
 - do not commit;
 - do not push.
@@ -311,7 +330,7 @@ Avoid `git add .` if unrelated changes exist.
 
 After all validation:
 
-- inspect the final diff;
+- inspect final diff;
 - stage only task files;
 - create a local commit with a concise message, for example `Tune and freeze Sampling Planner` or the roadmap-specific equivalent;
 - report the commit SHA;
@@ -327,8 +346,8 @@ Return a compact engineering report containing:
 - starting commit;
 - tuning scenario count and any excluded invalid-initial-state cases;
 - experiments performed;
+- candidate-level feasible ratio and dominant pruning categories for important structural configs;
 - maximum coverage before and after;
-- candidate-level feasible ratio and dominant pruning categories for important configs;
 - whether terminal-state expansion was run or skipped, and why;
 - final config and what changed;
 - canonical/common-success objective comparison;
@@ -341,7 +360,7 @@ Return a compact engineering report containing:
 
 ## Historical repository notes
 
-Use these only as priors. Verify against the current repository before acting.
+Use these only as priors. Verify against current repository state before acting.
 
 - Sampling tuning previously favored a moderate candidate set with strong bypass-length diversity rather than maximum lateral densification.
 - Extra terminal-state density previously increased runtime/candidate count without improving coverage enough to justify the complexity.
