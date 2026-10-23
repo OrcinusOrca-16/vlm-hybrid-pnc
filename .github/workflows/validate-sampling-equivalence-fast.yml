@@ -1,0 +1,182 @@
+name: Fast Sampling equivalence validation
+
+on:
+  push:
+    branches:
+      - validate/sampling-tuning-current
+    paths:
+      - .github/workflows/validate-sampling-equivalence-fast.yml
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout current
+        uses: actions/checkout@v4
+        with:
+          ref: validate/sampling-tuning-current
+          path: current
+
+      - name: Checkout baseline
+        uses: actions/checkout@v4
+        with:
+          ref: edd3d89b358492bee35e9958947c2a795a0ff447
+          path: baseline
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        working-directory: current
+        run: pip install -r requirements.txt
+
+      - name: Evaluate baseline representative configs
+        working-directory: baseline
+        run: |
+          python - <<'PY'
+          import json
+          from dataclasses import asdict
+          from pathlib import Path
+          from scripts.planning.run_sampling_tuning import (
+              SamplingTuningConfig,
+              build_structure_configs,
+              evaluate_config,
+              prepare_scenarios,
+          )
+          from src.config.planning import DEFAULT_SAMPLING_PLANNER_CONFIG
+
+          _, scenarios, _ = prepare_scenarios()
+          configs = [
+              SamplingTuningConfig(
+                  name='frozen',
+                  bypass_lateral_positions_m=DEFAULT_SAMPLING_PLANNER_CONFIG.returning_bypass_lateral_positions_m,
+                  bypass_lengths_m=DEFAULT_SAMPLING_PLANNER_CONFIG.returning_bypass_lengths_m,
+              ),
+              build_structure_configs()[0],
+              build_structure_configs()[-1],
+          ]
+          weights = DEFAULT_SAMPLING_PLANNER_CONFIG.matched_objective_weights
+          data = {}
+          for config in configs:
+              ev = evaluate_config(config, scenarios, weights)
+              data[config.name] = {
+                  name: asdict(outcome)
+                  for name, outcome in ev.outcomes.items()
+              }
+          Path('/tmp/baseline.json').write_text(json.dumps(data, sort_keys=True), encoding='utf-8')
+          print('baseline configs:', list(data))
+          PY
+
+      - name: Evaluate current representative configs
+        working-directory: current
+        run: |
+          python - <<'PY'
+          import json
+          from dataclasses import asdict
+          from pathlib import Path
+          from scripts.planning.run_sampling_tuning import (
+              SamplingTuningConfig,
+              build_structure_configs,
+              evaluate_config,
+              prepare_scenarios,
+          )
+          from src.config.planning import DEFAULT_SAMPLING_PLANNER_CONFIG
+
+          _, scenarios, _ = prepare_scenarios()
+          configs = [
+              SamplingTuningConfig(
+                  name='frozen',
+                  bypass_lateral_positions_m=DEFAULT_SAMPLING_PLANNER_CONFIG.returning_bypass_lateral_positions_m,
+                  bypass_lengths_m=DEFAULT_SAMPLING_PLANNER_CONFIG.returning_bypass_lengths_m,
+              ),
+              build_structure_configs()[0],
+              build_structure_configs()[-1],
+          ]
+          weights = DEFAULT_SAMPLING_PLANNER_CONFIG.matched_objective_weights
+          data = {}
+          for config in configs:
+              ev = evaluate_config(config, scenarios, weights)
+              data[config.name] = {
+                  name: asdict(outcome)
+                  for name, outcome in ev.outcomes.items()
+              }
+          Path('/tmp/current.json').write_text(json.dumps(data, sort_keys=True), encoding='utf-8')
+          print('current configs:', list(data))
+          PY
+
+      - name: Compare planner outcomes
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          old = json.loads(Path('/tmp/baseline.json').read_text())
+          new = json.loads(Path('/tmp/current.json').read_text())
+          assert old.keys() == new.keys()
+          ignore = {
+              'planning_time_ms',
+              'generated_candidate_count',
+              'feasible_candidate_count',
+              'feasible_ratio',
+              'curvature_reject_count',
+              'clearance_reject_count',
+              'road_boundary_reject_count',
+          }
+          checked = 0
+          for config in old:
+              assert old[config].keys() == new[config].keys()
+              for scenario in old[config]:
+                  a = old[config][scenario]
+                  b = new[config][scenario]
+                  keys = (a.keys() | b.keys()) - ignore
+                  for key in keys:
+                      av = a.get(key)
+                      bv = b.get(key)
+                      if isinstance(av, float) and isinstance(bv, float):
+                          assert abs(av - bv) < 1e-12, (config, scenario, key, av, bv)
+                      else:
+                          assert av == bv, (config, scenario, key, av, bv)
+                  checked += 1
+          print(f'Equivalent deterministic planner outcomes for {checked} config-scenario cases.')
+          PY
+
+      - name: Validate candidate diagnostics on frozen config
+        working-directory: current
+        run: |
+          python - <<'PY'
+          import scripts.planning.run_sampling_tuning as tuning
+          from scripts.planning.run_sampling_tuning import SamplingTuningConfig, get_candidate_diagnostics, prepare_scenarios
+          from src.config.planning import DEFAULT_SAMPLING_PLANNER_CONFIG
+
+          tuning._COLLECT_CANDIDATE_DIAGNOSTICS = True
+          _, scenarios, _ = prepare_scenarios()
+          config = SamplingTuningConfig(
+              name='frozen',
+              bypass_lateral_positions_m=DEFAULT_SAMPLING_PLANNER_CONFIG.returning_bypass_lateral_positions_m,
+              bypass_lengths_m=DEFAULT_SAMPLING_PLANNER_CONFIG.returning_bypass_lengths_m,
+          )
+          for scenario in scenarios:
+              d = get_candidate_diagnostics(config, scenario)
+              classified = (
+                  d.feasible_candidate_count
+                  + d.curvature_reject_count
+                  + d.clearance_reject_count
+                  + d.road_boundary_reject_count
+              )
+              assert classified == d.generated_candidate_count, (scenario.name, classified, d.generated_candidate_count)
+          print(f'Candidate diagnostics consistent for {len(scenarios)} active scenarios.')
+          PY
+
+      - name: Run relevant regressions
+        working-directory: current
+        run: |
+          python -m scripts.planning.validate_reference_line
+          python -m scripts.planning.validate_frenet
+          python -m scripts.planning.validate_sampling_planner
+          python -m scripts.planning.validate_sampling_benchmark_adapter
+          python -m scripts.planning.validate_tuning_objective_separation
+          python -m scripts.planning.validate_canonical_benchmark
+          python -m scripts.planning.validate_discrete_scenario_benchmark
+          python -m scripts.planning.validate_stress_benchmark
