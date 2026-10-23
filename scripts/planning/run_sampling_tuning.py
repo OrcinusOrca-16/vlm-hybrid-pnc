@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import csv
 import json
 
@@ -41,6 +42,9 @@ from src.planning.frenet import (
 )
 from src.planning.hard_constraints import (
     filter_feasible_candidates,
+    is_curvature_feasible,
+    is_obstacle_clearance_feasible,
+    is_road_boundary_feasible,
     obstacle_clearance,
 )
 from src.planning.path_objective import (
@@ -144,6 +148,25 @@ class SamplingTuningConfig:
 
 
 @dataclass(frozen=True)
+class CandidateDiagnostics:
+    generated_candidate_count: int
+    feasible_candidate_count: int
+    curvature_reject_count: int
+    clearance_reject_count: int
+    road_boundary_reject_count: int
+
+    @property
+    def feasible_ratio(self) -> float:
+        if self.generated_candidate_count <= 0:
+            return 0.0
+
+        return (
+            self.feasible_candidate_count
+            / self.generated_candidate_count
+        )
+
+
+@dataclass(frozen=True)
 class CaseOutcome:
     success: bool
 
@@ -201,6 +224,36 @@ class CaseOutcome:
         float
         | None
     )
+
+    generated_candidate_count: (
+        int
+        | None
+    ) = None
+
+    feasible_candidate_count: (
+        int
+        | None
+    ) = None
+
+    feasible_ratio: (
+        float
+        | None
+    ) = None
+
+    curvature_reject_count: (
+        int
+        | None
+    ) = None
+
+    clearance_reject_count: (
+        int
+        | None
+    ) = None
+
+    road_boundary_reject_count: (
+        int
+        | None
+    ) = None
 
 
 @dataclass
@@ -304,6 +357,24 @@ class ConfigEvaluation:
             values
         )
 
+    @property
+    def mean_feasible_ratio(
+        self,
+    ) -> float | None:
+        values = [
+            outcome.feasible_ratio
+            for outcome
+            in self.outcomes.values()
+            if outcome.feasible_ratio is not None
+        ]
+
+        if not values:
+            return None
+
+        return mean(
+            values
+        )
+
 
 _RUN_CACHE: dict[
     tuple[
@@ -326,6 +397,15 @@ _CANDIDATE_CACHE: dict[
             list[PathPoint],
         ]
     ],
+] = {}
+
+
+_CANDIDATE_DIAGNOSTIC_CACHE: dict[
+    tuple[
+        SamplingTuningConfig,
+        str,
+    ],
+    CandidateDiagnostics,
 ] = {}
 
 
@@ -843,6 +923,33 @@ def outcome_from_metrics(
     )
 
 
+def attach_candidate_diagnostics(
+    outcome: CaseOutcome,
+    diagnostics: CandidateDiagnostics,
+) -> CaseOutcome:
+    return replace(
+        outcome,
+        generated_candidate_count=(
+            diagnostics.generated_candidate_count
+        ),
+        feasible_candidate_count=(
+            diagnostics.feasible_candidate_count
+        ),
+        feasible_ratio=(
+            diagnostics.feasible_ratio
+        ),
+        curvature_reject_count=(
+            diagnostics.curvature_reject_count
+        ),
+        clearance_reject_count=(
+            diagnostics.clearance_reject_count
+        ),
+        road_boundary_reject_count=(
+            diagnostics.road_boundary_reject_count
+        ),
+    )
+
+
 def run_one_scenario(
     config: SamplingTuningConfig,
     scenario: BenchmarkScenario,
@@ -993,6 +1100,20 @@ def run_one_scenario(
         outcome_from_metrics(
             result=result,
             metrics=metrics,
+        )
+    )
+
+    diagnostics = (
+        get_candidate_diagnostics(
+            config=config,
+            scenario=scenario,
+        )
+    )
+
+    outcome = (
+        attach_candidate_diagnostics(
+            outcome=outcome,
+            diagnostics=diagnostics,
         )
     )
 
@@ -1339,6 +1460,51 @@ def evaluation_summary(
             evaluation
             .comparison_objective
         ),
+        "mean_feasible_candidate_count": (
+            mean_optional(
+                [
+                    (
+                        float(
+                            outcome
+                            .feasible_candidate_count
+                        )
+                        if outcome.feasible_candidate_count
+                        is not None
+                        else None
+                    )
+                    for outcome
+                    in evaluation.outcomes.values()
+                ]
+            )
+        ),
+        "mean_feasible_ratio": (
+            evaluation.mean_feasible_ratio
+        ),
+        "total_generated_candidate_count": sum(
+            outcome.generated_candidate_count or 0
+            for outcome
+            in evaluation.outcomes.values()
+        ),
+        "total_feasible_candidate_count": sum(
+            outcome.feasible_candidate_count or 0
+            for outcome
+            in evaluation.outcomes.values()
+        ),
+        "total_curvature_reject_count": sum(
+            outcome.curvature_reject_count or 0
+            for outcome
+            in evaluation.outcomes.values()
+        ),
+        "total_clearance_reject_count": sum(
+            outcome.clearance_reject_count or 0
+            for outcome
+            in evaluation.outcomes.values()
+        ),
+        "total_road_boundary_reject_count": sum(
+            outcome.road_boundary_reject_count or 0
+            for outcome
+            in evaluation.outcomes.values()
+        ),
         "mean_rms_lateral_deviation_m": (
             mean_optional(
                 [
@@ -1467,6 +1633,105 @@ def print_stage_result(
         )
 
 
+def compute_candidate_diagnostics(
+    trajectories: list[FrenetTrajectory],
+    paths: list[list[PathPoint]],
+    scenario: BenchmarkScenario,
+) -> CandidateDiagnostics:
+    if len(trajectories) != len(paths):
+        raise ValueError(
+            "trajectories and paths must have the same length."
+        )
+
+    curvature_reject_count = 0
+    clearance_reject_count = 0
+    road_boundary_reject_count = 0
+    feasible_candidate_count = 0
+
+    for (
+        trajectory,
+        path,
+    ) in zip(
+        trajectories,
+        paths,
+    ):
+        if not is_curvature_feasible(
+            path=path,
+            max_curvature=(
+                scenario.max_curvature
+            ),
+        ):
+            curvature_reject_count += 1
+            continue
+
+        if not is_obstacle_clearance_feasible(
+            path=path,
+            vehicle_params=(
+                scenario.vehicle_params
+            ),
+            obstacles=list(
+                scenario.obstacles
+            ),
+            minimum_clearance_m=(
+                scenario.minimum_clearance_m
+            ),
+        ):
+            clearance_reject_count += 1
+            continue
+
+        if not is_road_boundary_feasible(
+            trajectory=trajectory,
+            vehicle_params=(
+                scenario.vehicle_params
+            ),
+            min_l=(
+                scenario.road_min_l
+            ),
+            max_l=(
+                scenario.road_max_l
+            ),
+        ):
+            road_boundary_reject_count += 1
+            continue
+
+        feasible_candidate_count += 1
+
+    diagnostics = CandidateDiagnostics(
+        generated_candidate_count=len(
+            trajectories
+        ),
+        feasible_candidate_count=(
+            feasible_candidate_count
+        ),
+        curvature_reject_count=(
+            curvature_reject_count
+        ),
+        clearance_reject_count=(
+            clearance_reject_count
+        ),
+        road_boundary_reject_count=(
+            road_boundary_reject_count
+        ),
+    )
+
+    classified_count = (
+        diagnostics.feasible_candidate_count
+        + diagnostics.curvature_reject_count
+        + diagnostics.clearance_reject_count
+        + diagnostics.road_boundary_reject_count
+    )
+
+    if (
+        classified_count
+        != diagnostics.generated_candidate_count
+    ):
+        raise RuntimeError(
+            "Candidate diagnostic counts do not sum to generated count."
+        )
+
+    return diagnostics
+
+
 def build_candidate_pool(
     config: SamplingTuningConfig,
     scenario: BenchmarkScenario,
@@ -1577,11 +1842,59 @@ def build_candidate_pool(
         )
     )
 
+    diagnostics = (
+        compute_candidate_diagnostics(
+            trajectories=trajectories,
+            paths=paths,
+            scenario=scenario,
+        )
+    )
+
+    if (
+        diagnostics.feasible_candidate_count
+        != len(feasible_candidates)
+    ):
+        raise RuntimeError(
+            "Candidate diagnostics disagree with physical validator."
+        )
+
     _CANDIDATE_CACHE[
         cache_key
     ] = feasible_candidates
 
+    _CANDIDATE_DIAGNOSTIC_CACHE[
+        cache_key
+    ] = diagnostics
+
     return feasible_candidates
+
+
+def get_candidate_diagnostics(
+    config: SamplingTuningConfig,
+    scenario: BenchmarkScenario,
+) -> CandidateDiagnostics:
+    cache_key = (
+        config,
+        scenario.name,
+    )
+
+    build_candidate_pool(
+        config=config,
+        scenario=scenario,
+    )
+
+    diagnostics = (
+        _CANDIDATE_DIAGNOSTIC_CACHE.get(
+            cache_key
+        )
+    )
+
+    if diagnostics is None:
+        raise RuntimeError(
+            "Candidate diagnostics missing after pool construction."
+        )
+
+    return diagnostics
 
 
 def build_weight_profiles(
@@ -1668,6 +1981,13 @@ def evaluate_cached_weight_profile(
             )
         )
 
+        diagnostics = (
+            get_candidate_diagnostics(
+                config=config,
+                scenario=scenario,
+            )
+        )
+
         if not feasible_candidates:
             outcome = CaseOutcome(
                 success=False,
@@ -1685,6 +2005,13 @@ def evaluate_cached_weight_profile(
                 max_abs_cartesian_curvature_per_m=None,
                 rms_cartesian_curvature_per_m=None,
                 rms_curvature_rate_per_m2=None,
+            )
+
+            outcome = (
+                attach_candidate_diagnostics(
+                    outcome=outcome,
+                    diagnostics=diagnostics,
+                )
             )
 
             case_results.append(
@@ -1829,6 +2156,13 @@ def evaluate_cached_weight_profile(
         outcome = replace(
             outcome,
             planning_time_ms=None,
+        )
+
+        outcome = (
+            attach_candidate_diagnostics(
+                outcome=outcome,
+                diagnostics=diagnostics,
+            )
         )
 
         case_results.append(
@@ -1987,6 +2321,24 @@ def append_case_rows(
                 "success": (
                     outcome.success
                 ),
+                "generated_candidate_count": (
+                    outcome.generated_candidate_count
+                ),
+                "feasible_candidate_count": (
+                    outcome.feasible_candidate_count
+                ),
+                "feasible_ratio": (
+                    outcome.feasible_ratio
+                ),
+                "curvature_reject_count": (
+                    outcome.curvature_reject_count
+                ),
+                "clearance_reject_count": (
+                    outcome.clearance_reject_count
+                ),
+                "road_boundary_reject_count": (
+                    outcome.road_boundary_reject_count
+                ),
                 "planning_time_ms": (
                     outcome.planning_time_ms
                 ),
@@ -2094,6 +2446,24 @@ def append_weight_case_rows(
                 "success": (
                     outcome.success
                 ),
+                "generated_candidate_count": (
+                    outcome.generated_candidate_count
+                ),
+                "feasible_candidate_count": (
+                    outcome.feasible_candidate_count
+                ),
+                "feasible_ratio": (
+                    outcome.feasible_ratio
+                ),
+                "curvature_reject_count": (
+                    outcome.curvature_reject_count
+                ),
+                "clearance_reject_count": (
+                    outcome.clearance_reject_count
+                ),
+                "road_boundary_reject_count": (
+                    outcome.road_boundary_reject_count
+                ),
                 "planning_time_ms": None,
                 "canonical_objective": (
                     outcome.canonical_objective
@@ -2157,6 +2527,12 @@ def write_results_csv(
         "final_slope_offsets",
         "scenario_name",
         "success",
+        "generated_candidate_count",
+        "feasible_candidate_count",
+        "feasible_ratio",
+        "curvature_reject_count",
+        "clearance_reject_count",
+        "road_boundary_reject_count",
         "planning_time_ms",
         "canonical_objective",
         "terminal_lateral_error_m",
@@ -2208,7 +2584,35 @@ def write_summary_json(
         )
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run Sampling Planner tuning experiments."
+        )
+    )
+
+    parser.add_argument(
+        "--stop-after-structure",
+        action="store_true",
+        help=(
+            "Run Stage A only, write diagnostics, and stop."
+        ),
+    )
+
+    parser.add_argument(
+        "--skip-terminal",
+        action="store_true",
+        help=(
+            "Skip terminal-state expansion and carry Stage-A Pareto configs into weight sensitivity."
+        ),
+    )
+
+    return parser.parse_args()
+
+
 def main() -> None:
+    args = parse_args()
+
     (
         all_scenarios,
         active_scenarios,
@@ -2239,6 +2643,12 @@ def main() -> None:
             ),
             "max_terminal_candidates_guard": (
                 MAX_TERMINAL_CANDIDATES
+            ),
+            "stop_after_structure": (
+                args.stop_after_structure
+            ),
+            "skip_terminal": (
+                args.skip_terminal
             ),
         },
         "initial_state_invalid_scenarios": (
@@ -2397,6 +2807,33 @@ def main() -> None:
         ],
     }
 
+    if args.stop_after_structure:
+        write_results_csv(
+            csv_rows
+        )
+
+        write_summary_json(
+            summary
+        )
+
+        print()
+        print(
+            "Sampling tuning Stage A completed."
+        )
+        print(
+            "  CSV: "
+            f"{RESULT_CSV_PATH}"
+        )
+        print(
+            "  JSON: "
+            f"{SUMMARY_JSON_PATH}"
+        )
+        print(
+            "  Held-out evaluation scenarios "
+            "were never imported or executed."
+        )
+        return
+
     # ================================================================
     # Stage B
     # Terminal-state density sweep only around the mathematical
@@ -2404,21 +2841,33 @@ def main() -> None:
     # ================================================================
 
     print()
-    print(
-        "Stage B: terminal-state sweep "
-        "on Stage-A Pareto configs"
-    )
+
+    if args.skip_terminal:
+        print(
+            "Stage B: terminal-state sweep skipped; "
+            "carrying Stage-A Pareto configs forward"
+        )
+    else:
+        print(
+            "Stage B: terminal-state sweep "
+            "on Stage-A Pareto configs"
+        )
 
     terminal_configs = []
 
     for evaluation in (
         stage_a_pareto
     ):
-        terminal_configs.extend(
-            build_terminal_variants(
+        if args.skip_terminal:
+            terminal_configs.append(
                 evaluation.config
             )
-        )
+        else:
+            terminal_configs.extend(
+                build_terminal_variants(
+                    evaluation.config
+                )
+            )
 
     terminal_configs = (
         unique_configs(
@@ -2509,6 +2958,9 @@ def main() -> None:
             len(
                 active_scenarios
             )
+        ),
+        "terminal_sweep_skipped": (
+            args.skip_terminal
         ),
         "common_comparison_scenarios": sorted(
             stage_b_common_names

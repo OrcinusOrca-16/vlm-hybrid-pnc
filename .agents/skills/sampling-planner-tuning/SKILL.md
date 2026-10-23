@@ -44,6 +44,24 @@ Treat `docs/roadmap.md` as the source of truth for current phase/status wording.
 
 Record the starting Git commit and inspect `git status --short` before edits. Preserve unrelated user changes.
 
+The tuning runner supports two evidence-driven control modes:
+
+- `python -m scripts.planning.run_sampling_tuning --stop-after-structure` runs Stage A only and writes candidate-level feasibility diagnostics.
+- `python -m scripts.planning.run_sampling_tuning --skip-terminal` carries the Stage-A Pareto frontier directly into weight sensitivity when terminal-state expansion is not justified.
+
+Running the script without flags preserves the full historical A -> B -> C reproduction workflow.
+
+## Pre-tuning sanity check
+
+Before tuning sampling density or search-space geometry, confirm that the current reference/Frenet pipeline is a sound basis for comparison. At minimum:
+
+- the reference line is sufficiently smooth for Frenet polynomial generation;
+- Frenet projection is locally well behaved for the active scenarios;
+- initial states are physically valid or explicitly excluded with a recorded reason;
+- planner resolution and physical-validation density are understood.
+
+Use the repository's existing reference-line/Frenet validation scripts when relevant. If these checks pass, record that fact and continue; do not turn this into a separate tuning project.
+
 ## Scenario isolation: mandatory
 
 Tuning may use only scenarios explicitly exposed by the repository's development/tuning suite, currently through `build_development_tuning_scenarios()` in `src/benchmark/tuning_scenario_suite.py`.
@@ -70,6 +88,10 @@ Sampling-specific parameters may include, as supported by the current repository
 - final slope target sampling density;
 - matched objective weights for `l`, `l'`, `l''`, `l'''`, terminal `l`, terminal `l'`;
 - candidate count versus runtime trade-off.
+
+The current planner is a spatial path sampler over `l(s)`. Do not introduce time-horizon, target-speed, or longitudinal-state sampling unless the planner scope is explicitly extended to spatiotemporal trajectory planning.
+
+Structured, obstacle-aware, or scenario-conditioned sampling is optional future work. Consider it when scenario diversity, horizon length, or candidate budget makes uniform sampling inefficient; do not add it automatically to the current two-stage bypass-and-return planner.
 
 Do not silently change common physical constraints, benchmark definitions, vehicle geometry, canonical evaluator formulas, scenario definitions, or the maneuver intent just to improve a result.
 
@@ -123,7 +145,9 @@ Explore combinations such as:
 
 For each config, record at least:
 
-- candidate count;
+- generated candidate count;
+- feasible candidate count and feasible ratio;
+- exclusive pruning breakdown in validator order: curvature rejects, clearance rejects, then road-boundary rejects;
 - success count and failure names;
 - common-success canonical objective where comparable;
 - minimum clearance;
@@ -131,13 +155,19 @@ For each config, record at least:
 - curvature-rate metric;
 - runtime.
 
+Use candidate-level diagnostics to distinguish search-density limitations from candidate-family limitations. If a denser grid does not improve feasible ratio or materially change the pruning breakdown, do not keep increasing density without a new hypothesis.
+
 Prefer a targeted structural sweep over blindly exploding all dimensions at once.
 
 Historical evidence from this repository suggests bypass-length diversity can provide more value than simply densifying the lateral grid. Treat this as a prior, not a permanent rule: rerun the evidence if scenarios or planner formulation have materially changed.
 
-### Stage B — Terminal-state sampling
+Start a new tuning investigation with `--stop-after-structure` when practical so the Stage-A failure and pruning evidence can determine whether terminal expansion is worth running.
 
-After a promising structural family is identified, test terminal target density:
+### Stage B — Conditional terminal-state sampling
+
+Keep the strict terminal state by default. Expand terminal target density only when Stage-A failure analysis gives a concrete reason to suspect that strict rejoin constraints are limiting feasible candidates. If no such evidence exists, use `--skip-terminal` and move directly to weight sensitivity.
+
+When terminal expansion is justified, test:
 
 - strict final `l=target`, final `l'=target`;
 - lateral terminal offsets when justified;
@@ -298,6 +328,8 @@ Return a compact engineering report containing:
 - tuning scenario count and any excluded invalid-initial-state cases;
 - experiments performed;
 - maximum coverage before and after;
+- candidate-level feasible ratio and dominant pruning categories for important configs;
+- whether terminal-state expansion was run or skipped, and why;
 - final config and what changed;
 - canonical/common-success objective comparison;
 - key clearance/smoothness/runtime trade-offs;
