@@ -1,0 +1,162 @@
+name: Temporary Sampling main validation
+
+on:
+  push:
+    branches:
+      - validate/sampling-tuning-main
+    paths:
+      - .github/workflows/temp-validate-sampling-main.yml
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: validate/sampling-tuning-main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run historical pre-upgrade tuning
+        run: |
+          git worktree add /tmp/sampling-baseline edd3d89b358492bee35e9958947c2a795a0ff447
+          cd /tmp/sampling-baseline
+          python -m scripts.planning.run_sampling_tuning
+          cp outputs/tuning/sampling_tuning_summary.json /tmp/sampling_baseline.json
+
+      - name: Run current default tuning
+        run: |
+          python -m scripts.planning.run_sampling_tuning
+          cp outputs/tuning/sampling_tuning_summary.json /tmp/sampling_current.json
+
+      - name: Compare deterministic tuning behavior
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          before = json.loads(Path('/tmp/sampling_baseline.json').read_text())
+          after = json.loads(Path('/tmp/sampling_current.json').read_text())
+
+          assert before['metadata']['raw_development_scenarios'] == after['metadata']['raw_development_scenarios']
+          assert before['metadata']['active_tuning_scenarios'] == after['metadata']['active_tuning_scenarios']
+          assert before['initial_state_invalid_scenarios'] == after['initial_state_invalid_scenarios']
+
+          b_stage = before['stage_a_structure']
+          a_stage = after['stage_a_structure']
+          assert b_stage['max_success_count'] == a_stage['max_success_count']
+          assert b_stage['total_active_scenarios'] == a_stage['total_active_scenarios']
+          assert b_stage['common_comparison_scenarios'] == a_stage['common_comparison_scenarios']
+
+          b_configs = {item['name']: item for item in b_stage['configs']}
+          a_configs = {item['name']: item for item in a_stage['configs']}
+          assert b_configs.keys() == a_configs.keys()
+
+          exact_keys = (
+              'candidate_count',
+              'bypass_lateral_positions_m',
+              'bypass_lengths_m',
+              'final_lateral_offsets_m',
+              'final_slope_offsets',
+              'success_count',
+              'total_count',
+              'failure_names',
+          )
+          float_keys = (
+              'mean_success_objective',
+              'comparison_objective',
+              'mean_rms_lateral_deviation_m',
+              'minimum_clearance_over_successes_m',
+              'maximum_curvature_over_successes_per_m',
+              'mean_rms_curvature_per_m',
+              'mean_rms_curvature_rate_per_m2',
+          )
+
+          for name in b_configs:
+              b = b_configs[name]
+              a = a_configs[name]
+              for key in exact_keys:
+                  assert b[key] == a[key], (name, key, b[key], a[key])
+              for key in float_keys:
+                  bv = b[key]
+                  av = a[key]
+                  if bv is None or av is None:
+                      assert bv == av, (name, key, bv, av)
+                  else:
+                      assert abs(bv - av) < 1e-12, (name, key, bv, av)
+
+          # Default mode must preserve the historical full A -> B -> C workflow.
+          assert after['metadata']['stop_after_structure'] is False
+          assert after['metadata']['skip_terminal'] is False
+          assert after['metadata']['candidate_diagnostics_enabled'] is False
+          assert 'stage_b_terminal' in after
+          assert 'stage_c_weight_sensitivity' in after
+
+          print('Stage-A deterministic outcomes match the pre-upgrade runner exactly.')
+          print('Default mode still runs full A -> B -> C with diagnostics disabled.')
+          print('Runtime/Pareto membership is not asserted because single-run timing is noisy.')
+          PY
+
+      - name: Validate diagnostic Stage-A mode
+        run: |
+          python -m scripts.planning.run_sampling_tuning --stop-after-structure
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(Path('outputs/tuning/sampling_tuning_summary.json').read_text())
+          assert data['metadata']['candidate_diagnostics_enabled'] is True
+          assert 'stage_a_structure' in data
+          assert 'stage_b_terminal' not in data
+          assert 'stage_c_weight_sensitivity' not in data
+
+          for config in data['stage_a_structure']['configs']:
+              generated = config['total_generated_candidate_count']
+              feasible = config['total_feasible_candidate_count']
+              curvature = config['total_curvature_reject_count']
+              clearance = config['total_clearance_reject_count']
+              boundary = config['total_road_boundary_reject_count']
+              assert generated is not None
+              assert feasible is not None
+              assert generated == feasible + curvature + clearance + boundary
+              ratio = config['mean_feasible_ratio']
+              assert ratio is not None
+              assert 0.0 <= ratio <= 1.0
+
+          print('Candidate pruning diagnostics are complete and internally consistent.')
+          PY
+
+      - name: Validate conditional terminal mode
+        run: |
+          python -m scripts.planning.run_sampling_tuning --skip-terminal
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('outputs/tuning/sampling_tuning_summary.json').read_text())
+          assert data['metadata']['skip_terminal'] is True
+          assert data['metadata']['candidate_diagnostics_enabled'] is False
+          assert data['stage_b_terminal']['terminal_sweep_skipped'] is True
+          assert 'stage_c_weight_sensitivity' in data
+          print('Strict-terminal skip mode passed and proceeds to weight sensitivity.')
+          PY
+
+      - name: Run planner regressions
+        run: |
+          python -m scripts.planning.validate_reference_line
+          python -m scripts.planning.validate_frenet
+          python -m scripts.planning.validate_sampling_planner
+          python -m scripts.planning.validate_sampling_benchmark_adapter
+          python -m scripts.planning.validate_tuning_objective_separation
+          python -m scripts.planning.validate_canonical_benchmark
+          python -m scripts.planning.validate_discrete_scenario_benchmark
+          python -m scripts.planning.validate_stress_benchmark
