@@ -1,0 +1,249 @@
+name: Temporary Sampling fast equivalence validation
+
+on:
+  push:
+    branches:
+      - validate/sampling-tuning-main
+    paths:
+      - .github/workflows/temp-validate-sampling-fast.yml
+
+permissions:
+  contents: read
+
+jobs:
+  validate-fast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: validate/sampling-tuning-main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create old-runner worktree
+        run: git worktree add /tmp/sampling-old edd3d89b358492bee35e9958947c2a795a0ff447
+
+      - name: Evaluate representative configs with old runner
+        working-directory: /tmp/sampling-old
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from dataclasses import asdict
+          from scripts.planning.run_sampling_tuning import (
+              SamplingTuningConfig,
+              evaluate_config,
+              prepare_scenarios,
+              symmetric_samples,
+          )
+          from src.config.planning import DEFAULT_SAMPLING_PLANNER_CONFIG
+
+          _, scenarios, _ = prepare_scenarios()
+          weights = DEFAULT_SAMPLING_PLANNER_CONFIG.matched_objective_weights
+          configs = (
+              SamplingTuningConfig(
+                  name='sparse_baseline',
+                  bypass_lateral_positions_m=symmetric_samples(1.5, 0.5),
+                  bypass_lengths_m=(10.0, 14.0, 18.0),
+              ),
+              SamplingTuningConfig(
+                  name='balanced_27',
+                  bypass_lateral_positions_m=symmetric_samples(2.0, 0.5),
+                  bypass_lengths_m=(8.0, 14.0, 22.0),
+              ),
+              SamplingTuningConfig(
+                  name='frozen_45',
+                  bypass_lateral_positions_m=(-2.0,-1.5,-1.0,-0.5,0.0,0.5,1.0,1.5,2.0),
+                  bypass_lengths_m=(6.0,10.0,14.0,18.0,22.0),
+              ),
+              SamplingTuningConfig(
+                  name='dense_85',
+                  bypass_lateral_positions_m=symmetric_samples(2.0, 0.25),
+                  bypass_lengths_m=(6.0,10.0,14.0,18.0,22.0),
+              ),
+          )
+
+          payload = {}
+          fields = (
+              'success', 'failure_reason', 'canonical_objective',
+              'terminal_lateral_error_m', 'terminal_slope_error',
+              'rms_lateral_deviation_m', 'cartesian_path_length_m',
+              'minimum_exact_obstacle_clearance_m',
+              'max_abs_cartesian_curvature_per_m',
+              'rms_cartesian_curvature_per_m',
+              'rms_curvature_rate_per_m2',
+          )
+          for config in configs:
+              evaluation = evaluate_config(config, scenarios, weights)
+              payload[config.name] = {
+                  'candidate_count': config.candidate_count,
+                  'success_count': evaluation.success_count,
+                  'failure_names': list(evaluation.failure_names),
+                  'cases': {
+                      name: {field: getattr(outcome, field) for field in fields}
+                      for name, outcome in evaluation.outcomes.items()
+                  },
+              }
+
+          Path('/tmp/old_representative.json').write_text(
+              json.dumps(payload, indent=2, allow_nan=False), encoding='utf-8'
+          )
+          print({k: (v['candidate_count'], v['success_count'], v['failure_names']) for k,v in payload.items()})
+          PY
+
+      - name: Evaluate same configs with current runner
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import scripts.planning.run_sampling_tuning as tuning
+          from scripts.planning.run_sampling_tuning import (
+              SamplingTuningConfig,
+              evaluate_config,
+              prepare_scenarios,
+              symmetric_samples,
+          )
+          from src.config.planning import DEFAULT_SAMPLING_PLANNER_CONFIG
+
+          tuning._COLLECT_CANDIDATE_DIAGNOSTICS = False
+          _, scenarios, _ = prepare_scenarios()
+          weights = DEFAULT_SAMPLING_PLANNER_CONFIG.matched_objective_weights
+          configs = (
+              SamplingTuningConfig(
+                  name='sparse_baseline',
+                  bypass_lateral_positions_m=symmetric_samples(1.5, 0.5),
+                  bypass_lengths_m=(10.0, 14.0, 18.0),
+              ),
+              SamplingTuningConfig(
+                  name='balanced_27',
+                  bypass_lateral_positions_m=symmetric_samples(2.0, 0.5),
+                  bypass_lengths_m=(8.0, 14.0, 22.0),
+              ),
+              SamplingTuningConfig(
+                  name='frozen_45',
+                  bypass_lateral_positions_m=(-2.0,-1.5,-1.0,-0.5,0.0,0.5,1.0,1.5,2.0),
+                  bypass_lengths_m=(6.0,10.0,14.0,18.0,22.0),
+              ),
+              SamplingTuningConfig(
+                  name='dense_85',
+                  bypass_lateral_positions_m=symmetric_samples(2.0, 0.25),
+                  bypass_lengths_m=(6.0,10.0,14.0,18.0,22.0),
+              ),
+          )
+
+          payload = {}
+          fields = (
+              'success', 'failure_reason', 'canonical_objective',
+              'terminal_lateral_error_m', 'terminal_slope_error',
+              'rms_lateral_deviation_m', 'cartesian_path_length_m',
+              'minimum_exact_obstacle_clearance_m',
+              'max_abs_cartesian_curvature_per_m',
+              'rms_cartesian_curvature_per_m',
+              'rms_curvature_rate_per_m2',
+          )
+          for config in configs:
+              evaluation = evaluate_config(config, scenarios, weights)
+              payload[config.name] = {
+                  'candidate_count': config.candidate_count,
+                  'success_count': evaluation.success_count,
+                  'failure_names': list(evaluation.failure_names),
+                  'cases': {
+                      name: {field: getattr(outcome, field) for field in fields}
+                      for name, outcome in evaluation.outcomes.items()
+                  },
+              }
+
+          Path('/tmp/current_representative.json').write_text(
+              json.dumps(payload, indent=2, allow_nan=False), encoding='utf-8'
+          )
+          print({k: (v['candidate_count'], v['success_count'], v['failure_names']) for k,v in payload.items()})
+          PY
+
+      - name: Compare old and current representative results
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          old = json.loads(Path('/tmp/old_representative.json').read_text())
+          current = json.loads(Path('/tmp/current_representative.json').read_text())
+          assert old.keys() == current.keys()
+          for cfg in old:
+              assert old[cfg]['candidate_count'] == current[cfg]['candidate_count']
+              assert old[cfg]['success_count'] == current[cfg]['success_count']
+              assert old[cfg]['failure_names'] == current[cfg]['failure_names']
+              assert old[cfg]['cases'].keys() == current[cfg]['cases'].keys()
+              for case in old[cfg]['cases']:
+                  b = old[cfg]['cases'][case]
+                  a = current[cfg]['cases'][case]
+                  for key in b:
+                      bv, av = b[key], a[key]
+                      if isinstance(bv, float):
+                          assert av is not None and abs(bv - av) < 1e-12, (cfg, case, key, bv, av)
+                      else:
+                          assert bv == av, (cfg, case, key, bv, av)
+          print('PASS: old and current runner match exactly on 4 representative structural configs across all active development scenarios.')
+          PY
+
+      - name: Validate candidate diagnostics against physical filter
+        run: |
+          python - <<'PY'
+          import scripts.planning.run_sampling_tuning as tuning
+          from scripts.planning.run_sampling_tuning import (
+              SamplingTuningConfig, build_candidate_pool, get_candidate_diagnostics,
+              prepare_scenarios,
+          )
+
+          tuning._COLLECT_CANDIDATE_DIAGNOSTICS = True
+          _, scenarios, _ = prepare_scenarios()
+          config = SamplingTuningConfig(
+              name='frozen_45',
+              bypass_lateral_positions_m=(-2.0,-1.5,-1.0,-0.5,0.0,0.5,1.0,1.5,2.0),
+              bypass_lengths_m=(6.0,10.0,14.0,18.0,22.0),
+          )
+          totals = dict(generated=0, feasible=0, curvature=0, clearance=0, boundary=0)
+          for scenario in scenarios:
+              pool = build_candidate_pool(config, scenario)
+              diag = get_candidate_diagnostics(config, scenario)
+              assert len(pool) == diag.feasible_candidate_count
+              assert diag.generated_candidate_count == (
+                  diag.feasible_candidate_count
+                  + diag.curvature_reject_count
+                  + diag.clearance_reject_count
+                  + diag.road_boundary_reject_count
+              )
+              totals['generated'] += diag.generated_candidate_count
+              totals['feasible'] += diag.feasible_candidate_count
+              totals['curvature'] += diag.curvature_reject_count
+              totals['clearance'] += diag.clearance_reject_count
+              totals['boundary'] += diag.road_boundary_reject_count
+          print('PASS candidate diagnostics:', totals)
+          PY
+
+      - name: Validate CLI modes without full sweeps
+        run: |
+          python -m scripts.planning.run_sampling_tuning --help | grep -- '--stop-after-structure'
+          python -m scripts.planning.run_sampling_tuning --help | grep -- '--skip-terminal'
+          python - <<'PY'
+          import scripts.planning.run_sampling_tuning as tuning
+          tuning._COLLECT_CANDIDATE_DIAGNOSTICS = False
+          assert tuning._COLLECT_CANDIDATE_DIAGNOSTICS is False
+          print('PASS: default diagnostic collection is off; flags are exposed.')
+          PY
+
+      - name: Run planner regressions
+        run: |
+          python -m scripts.planning.validate_reference_line
+          python -m scripts.planning.validate_frenet
+          python -m scripts.planning.validate_sampling_planner
+          python -m scripts.planning.validate_sampling_benchmark_adapter
+          python -m scripts.planning.validate_tuning_objective_separation
+          python -m scripts.planning.validate_canonical_benchmark
+          python -m scripts.planning.validate_discrete_scenario_benchmark
+          python -m scripts.planning.validate_stress_benchmark
