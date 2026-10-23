@@ -46,10 +46,10 @@ Record the starting Git commit and inspect `git status --short` before edits. Pr
 
 The tuning runner supports two evidence-driven control modes:
 
-- `python -m scripts.planning.run_sampling_tuning --stop-after-structure` runs Stage A only and writes candidate-level feasibility diagnostics.
+- `python -m scripts.planning.run_sampling_tuning --stop-after-structure` runs Stage A only and enables the extra candidate-level feasibility/pruning diagnostics.
 - `python -m scripts.planning.run_sampling_tuning --skip-terminal` carries the Stage-A Pareto frontier directly into weight sensitivity when terminal-state expansion is not justified.
 
-Running the script without flags preserves the full historical A -> B -> C reproduction workflow.
+Running the script without flags preserves the full historical A -> B -> C reproduction workflow and does not pay the extra diagnostic re-validation cost.
 
 ## Pre-tuning sanity check
 
@@ -206,6 +206,8 @@ For non-dominated structural candidates, compare:
 - measured runtime.
 
 Use Pareto reasoning. For example, if a denser config has the same coverage and only a small path-quality advantage but materially increases candidates/runtime, the lower-complexity config may be the better engineering choice.
+
+Do not treat a Pareto-membership flip caused only by small single-run runtime noise as evidence of a better configuration. Repeat timing or prefer deterministic candidate-count/quality evidence when coverage and objective are otherwise unchanged.
 
 Do not invent a fixed acceptable percentage improvement unless the user or repository already defines one.
 
