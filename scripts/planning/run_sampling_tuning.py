@@ -409,6 +409,12 @@ _CANDIDATE_DIAGNOSTIC_CACHE: dict[
 ] = {}
 
 
+# Candidate-level pruning diagnostics intentionally re-run candidate
+# generation/validation. Keep them opt-in so the historical full tuning
+# reproduction retains its original wall-clock cost.
+_COLLECT_CANDIDATE_DIAGNOSTICS = False
+
+
 def symmetric_samples(
     max_abs_value: float,
     interval: float,
@@ -1103,19 +1109,20 @@ def run_one_scenario(
         )
     )
 
-    diagnostics = (
-        get_candidate_diagnostics(
-            config=config,
-            scenario=scenario,
+    if _COLLECT_CANDIDATE_DIAGNOSTICS:
+        diagnostics = (
+            get_candidate_diagnostics(
+                config=config,
+                scenario=scenario,
+            )
         )
-    )
 
-    outcome = (
-        attach_candidate_diagnostics(
-            outcome=outcome,
-            diagnostics=diagnostics,
+        outcome = (
+            attach_candidate_diagnostics(
+                outcome=outcome,
+                diagnostics=diagnostics,
+            )
         )
-    )
 
     _RUN_CACHE[
         cache_key
@@ -1433,6 +1440,13 @@ def evaluation_summary(
         if outcome.success
     ]
 
+    diagnostic_outcomes = [
+        outcome
+        for outcome
+        in evaluation.outcomes.values()
+        if outcome.generated_candidate_count is not None
+    ]
+
     return {
         "name": (
             evaluation.config.name
@@ -1480,30 +1494,50 @@ def evaluation_summary(
         "mean_feasible_ratio": (
             evaluation.mean_feasible_ratio
         ),
-        "total_generated_candidate_count": sum(
-            outcome.generated_candidate_count or 0
-            for outcome
-            in evaluation.outcomes.values()
+        "total_generated_candidate_count": (
+            sum(
+                outcome.generated_candidate_count or 0
+                for outcome
+                in diagnostic_outcomes
+            )
+            if diagnostic_outcomes
+            else None
         ),
-        "total_feasible_candidate_count": sum(
-            outcome.feasible_candidate_count or 0
-            for outcome
-            in evaluation.outcomes.values()
+        "total_feasible_candidate_count": (
+            sum(
+                outcome.feasible_candidate_count or 0
+                for outcome
+                in diagnostic_outcomes
+            )
+            if diagnostic_outcomes
+            else None
         ),
-        "total_curvature_reject_count": sum(
-            outcome.curvature_reject_count or 0
-            for outcome
-            in evaluation.outcomes.values()
+        "total_curvature_reject_count": (
+            sum(
+                outcome.curvature_reject_count or 0
+                for outcome
+                in diagnostic_outcomes
+            )
+            if diagnostic_outcomes
+            else None
         ),
-        "total_clearance_reject_count": sum(
-            outcome.clearance_reject_count or 0
-            for outcome
-            in evaluation.outcomes.values()
+        "total_clearance_reject_count": (
+            sum(
+                outcome.clearance_reject_count or 0
+                for outcome
+                in diagnostic_outcomes
+            )
+            if diagnostic_outcomes
+            else None
         ),
-        "total_road_boundary_reject_count": sum(
-            outcome.road_boundary_reject_count or 0
-            for outcome
-            in evaluation.outcomes.values()
+        "total_road_boundary_reject_count": (
+            sum(
+                outcome.road_boundary_reject_count or 0
+                for outcome
+                in diagnostic_outcomes
+            )
+            if diagnostic_outcomes
+            else None
         ),
         "mean_rms_lateral_deviation_m": (
             mean_optional(
@@ -1842,29 +1876,30 @@ def build_candidate_pool(
         )
     )
 
-    diagnostics = (
-        compute_candidate_diagnostics(
-            trajectories=trajectories,
-            paths=paths,
-            scenario=scenario,
+    if _COLLECT_CANDIDATE_DIAGNOSTICS:
+        diagnostics = (
+            compute_candidate_diagnostics(
+                trajectories=trajectories,
+                paths=paths,
+                scenario=scenario,
+            )
         )
-    )
 
-    if (
-        diagnostics.feasible_candidate_count
-        != len(feasible_candidates)
-    ):
-        raise RuntimeError(
-            "Candidate diagnostics disagree with physical validator."
-        )
+        if (
+            diagnostics.feasible_candidate_count
+            != len(feasible_candidates)
+        ):
+            raise RuntimeError(
+                "Candidate diagnostics disagree with physical validator."
+            )
+
+        _CANDIDATE_DIAGNOSTIC_CACHE[
+            cache_key
+        ] = diagnostics
 
     _CANDIDATE_CACHE[
         cache_key
     ] = feasible_candidates
-
-    _CANDIDATE_DIAGNOSTIC_CACHE[
-        cache_key
-    ] = diagnostics
 
     return feasible_candidates
 
@@ -1877,6 +1912,11 @@ def get_candidate_diagnostics(
         config,
         scenario.name,
     )
+
+    if not _COLLECT_CANDIDATE_DIAGNOSTICS:
+        raise RuntimeError(
+            "Candidate diagnostics were not enabled for this run."
+        )
 
     build_candidate_pool(
         config=config,
@@ -1981,12 +2021,15 @@ def evaluate_cached_weight_profile(
             )
         )
 
-        diagnostics = (
-            get_candidate_diagnostics(
-                config=config,
-                scenario=scenario,
+        diagnostics = None
+
+        if _COLLECT_CANDIDATE_DIAGNOSTICS:
+            diagnostics = (
+                get_candidate_diagnostics(
+                    config=config,
+                    scenario=scenario,
+                )
             )
-        )
 
         if not feasible_candidates:
             outcome = CaseOutcome(
@@ -2007,12 +2050,13 @@ def evaluate_cached_weight_profile(
                 rms_curvature_rate_per_m2=None,
             )
 
-            outcome = (
-                attach_candidate_diagnostics(
-                    outcome=outcome,
-                    diagnostics=diagnostics,
+            if diagnostics is not None:
+                outcome = (
+                    attach_candidate_diagnostics(
+                        outcome=outcome,
+                        diagnostics=diagnostics,
+                    )
                 )
-            )
 
             case_results.append(
                 (
@@ -2158,12 +2202,13 @@ def evaluate_cached_weight_profile(
             planning_time_ms=None,
         )
 
-        outcome = (
-            attach_candidate_diagnostics(
-                outcome=outcome,
-                diagnostics=diagnostics,
+        if diagnostics is not None:
+            outcome = (
+                attach_candidate_diagnostics(
+                    outcome=outcome,
+                    diagnostics=diagnostics,
+                )
             )
-        )
 
         case_results.append(
             (
@@ -2611,7 +2656,15 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    global _COLLECT_CANDIDATE_DIAGNOSTICS
+
     args = parse_args()
+
+    # Stage-A-only mode is the diagnostic entry point used by the skill.
+    # Full reproduction and skip-terminal runs keep the historical cost.
+    _COLLECT_CANDIDATE_DIAGNOSTICS = (
+        args.stop_after_structure
+    )
 
     (
         all_scenarios,
@@ -2649,6 +2702,9 @@ def main() -> None:
             ),
             "skip_terminal": (
                 args.skip_terminal
+            ),
+            "candidate_diagnostics_enabled": (
+                _COLLECT_CANDIDATE_DIAGNOSTICS
             ),
         },
         "initial_state_invalid_scenarios": (
