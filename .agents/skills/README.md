@@ -11,7 +11,7 @@ with a controlled AI tuning loop that preserves the benchmark methodology alread
 ## Contents
 
 - `sampling-planner-tuning/SKILL.md`  
-  - Sampling Planner search-space, terminal-state, matched-objective, candidate-count, runtime and freeze workflow.  
+  - Sampling Planner search-space, candidate feasibility/pruning diagnostics, conditional terminal-state, matched-objective, runtime and freeze workflow.  
 - `optimization-planner-tuning/SKILL.md`  
   - Optimization Planner geometry/corridor, objective interaction, OSQP tolerance, runtime and freeze workflow.
 
@@ -109,6 +109,7 @@ They intentionally reference the current project structure, including:
 - `src/config/planning.py`  
 - `src/benchmark/tuning_scenario_suite.py`  
 - `scripts/planning/run_sampling_tuning.py`  
+- `scripts/planning/run_sampling_tuning_guided.py`  
 - `scripts/planning/run_optimization_tuning.py`  
 - `scripts/planning/run_optimization_tuning_reproduction.py`  
 - canonical/discrete/stress/runtime benchmark scripts
