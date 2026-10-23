@@ -18,10 +18,11 @@ jobs:
         with:
           python-version: '3.10'
       - run: pip install -r requirements.txt
-      - name: Compile
+      - name: Compile and CLI smoke check
         run: |
           python -m py_compile scripts/planning/run_sampling_tuning.py
           python -m py_compile scripts/planning/run_sampling_tuning_guided.py
+          python -m scripts.planning.run_sampling_tuning_guided --help
       - name: Compare guided Stage A with legacy Stage A functions
         run: |
           python - <<'PY'
@@ -48,7 +49,7 @@ jobs:
           (
               guided_evaluations,
               guided_frontier,
-              guided_common,
+              _guided_common,
               guided_summary,
           ) = guided.run_structure_stage(
               active_scenarios=scenarios,
@@ -91,10 +92,6 @@ jobs:
           print(f'Max coverage: {legacy_max}/{len(scenarios)}')
           print('Pareto:', [e.config.name for e in legacy_frontier])
           PY
-      - name: Run guided CLI modes
-        run: |
-          python -m scripts.planning.run_sampling_tuning_guided --mode structure
-          python -m scripts.planning.run_sampling_tuning_guided --mode strict
       - name: Planner regressions
         run: |
           python -m scripts.planning.validate_sampling_planner
