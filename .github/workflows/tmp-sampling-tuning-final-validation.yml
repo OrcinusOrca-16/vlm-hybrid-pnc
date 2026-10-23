@@ -1,0 +1,196 @@
+name: Temporary Final Sampling Tuning Validation
+
+on:
+  push:
+    branches:
+      - chore/sampling-tuning-final-validation
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Apply final diagnostics-mode patch
+        run: |
+          python tools/patch_sampling_tuning_diagnostics_mode.py
+          python -m py_compile scripts/planning/run_sampling_tuning.py
+
+      - name: Validate Stage-A diagnostic mode
+        run: |
+          start=$(date +%s)
+          python -m scripts.planning.run_sampling_tuning --stop-after-structure
+          end=$(date +%s)
+          echo "STAGE_A_DIAGNOSTIC_WALL_SECONDS=$((end-start))"
+          python - <<'PY'
+          import json
+          from math import isclose
+
+          with open('outputs/tuning/sampling_tuning_summary.json', encoding='utf-8') as f:
+              data = json.load(f)
+
+          metadata = data['metadata']
+          if not metadata['stop_after_structure']:
+              raise SystemExit('Stage-A-only metadata flag missing.')
+          if not metadata['candidate_diagnostics_enabled']:
+              raise SystemExit('Candidate diagnostics were not enabled.')
+          if 'stage_b_terminal' in data or 'stage_c_weight_sensitivity' in data:
+              raise SystemExit('Stage-A-only mode continued past Stage A.')
+
+          stage = data['stage_a_structure']
+          if stage['max_success_count'] != 23:
+              raise SystemExit('Stage A maximum coverage changed from historical 23/25.')
+          if len(stage['common_comparison_scenarios']) != 23:
+              raise SystemExit('Stage A common-success scenario count changed.')
+
+          expected_objectives = {
+              'r2.00_d0.50__balanced': 0.571818,
+              'r2.00_d0.50__dense': 0.548876,
+              'r2.00_d0.25__balanced': 0.536312,
+              'r2.00_d0.25__dense': 0.513370,
+          }
+          configs = {item['name']: item for item in stage['configs']}
+          for name, expected in expected_objectives.items():
+              actual = configs[name]['comparison_objective']
+              if actual is None or not isclose(actual, expected, abs_tol=5e-7):
+                  raise SystemExit(f'{name}: canonical objective changed: {actual}')
+
+          for config in stage['configs']:
+              generated = config['total_generated_candidate_count']
+              feasible = config['total_feasible_candidate_count']
+              rejected = (
+                  config['total_curvature_reject_count']
+                  + config['total_clearance_reject_count']
+                  + config['total_road_boundary_reject_count']
+              )
+              expected_generated = config['candidate_count'] * config['total_count']
+              if generated != expected_generated:
+                  raise SystemExit(f"{config['name']}: generated count mismatch")
+              if feasible + rejected != generated:
+                  raise SystemExit(f"{config['name']}: diagnostic accounting mismatch")
+              ratio = config['mean_feasible_ratio']
+              if ratio is None or not 0.0 <= ratio <= 1.0:
+                  raise SystemExit(f"{config['name']}: invalid feasible ratio")
+
+          print('Stage-A deterministic results match historical values.')
+          print('Candidate diagnostic accounting is internally consistent.')
+          PY
+
+      - name: Validate default full reproduction
+        run: |
+          start=$(date +%s)
+          python -m scripts.planning.run_sampling_tuning
+          end=$(date +%s)
+          echo "DEFAULT_FULL_WALL_SECONDS=$((end-start))"
+          python - <<'PY'
+          import json
+          from math import isclose
+
+          with open('outputs/tuning/sampling_tuning_summary.json', encoding='utf-8') as f:
+              data = json.load(f)
+
+          metadata = data['metadata']
+          if metadata['candidate_diagnostics_enabled']:
+              raise SystemExit('Default full run unexpectedly enabled extra diagnostics.')
+          if metadata['stop_after_structure'] or metadata['skip_terminal']:
+              raise SystemExit('Default full run metadata is incorrect.')
+
+          stage_a = data['stage_a_structure']
+          stage_b = data['stage_b_terminal']
+          if stage_a['max_success_count'] != 23 or stage_b['max_success_count'] != 23:
+              raise SystemExit('Historical 23/25 coverage changed.')
+          if len(stage_a['common_comparison_scenarios']) != 23:
+              raise SystemExit('Stage A common-success set changed.')
+          if len(stage_b['common_comparison_scenarios']) != 23:
+              raise SystemExit('Stage B common-success set changed.')
+          if 'stage_c_weight_sensitivity' not in data:
+              raise SystemExit('Default full run did not reach Stage C.')
+
+          expected_objectives = {
+              'r2.00_d0.50__balanced': 0.571818,
+              'r2.00_d0.50__dense': 0.548876,
+              'r2.00_d0.25__balanced': 0.536312,
+              'r2.00_d0.25__dense': 0.513370,
+          }
+          configs = {item['name']: item for item in stage_a['configs']}
+          for name, expected in expected_objectives.items():
+              actual = configs[name]['comparison_objective']
+              if actual is None or not isclose(actual, expected, abs_tol=5e-7):
+                  raise SystemExit(f'{name}: canonical objective changed: {actual}')
+
+          if any(
+              item['total_generated_candidate_count'] is not None
+              for item in stage_a['configs']
+          ):
+              raise SystemExit('Default run paid diagnostic cost unexpectedly.')
+
+          print('Default full reproduction preserved historical deterministic results.')
+          PY
+
+      - name: Validate skip-terminal mode
+        run: |
+          python -m scripts.planning.run_sampling_tuning --skip-terminal
+          python - <<'PY'
+          import json
+
+          with open('outputs/tuning/sampling_tuning_summary.json', encoding='utf-8') as f:
+              data = json.load(f)
+
+          stage_a = data['stage_a_structure']
+          stage_b = data['stage_b_terminal']
+          if not stage_b['terminal_sweep_skipped']:
+              raise SystemExit('Skip-terminal metadata flag missing.')
+          if data['metadata']['candidate_diagnostics_enabled']:
+              raise SystemExit('Skip-terminal run unexpectedly enabled diagnostics.')
+          if set(stage_a['pareto_config_names']) != set(stage_b['pareto_config_names']):
+              raise SystemExit('Skip-terminal mode changed the carried Pareto config set.')
+          for config in stage_b['configs']:
+              if config['final_lateral_offsets_m'] != [0.0]:
+                  raise SystemExit('Skip-terminal mode expanded terminal lateral state.')
+              if config['final_slope_offsets'] != [0.0]:
+                  raise SystemExit('Skip-terminal mode expanded terminal slope state.')
+          if 'stage_c_weight_sensitivity' not in data:
+              raise SystemExit('Skip-terminal mode did not continue to Stage C.')
+
+          print('Skip-terminal mode passed.')
+          PY
+
+      - name: Run planning regressions
+        run: |
+          python -m scripts.planning.validate_reference_line
+          python -m scripts.planning.validate_frenet
+          python -m scripts.planning.validate_sampling_planner
+          python -m scripts.planning.validate_sampling_benchmark_adapter
+          python -m scripts.planning.validate_canonical_benchmark
+          python -m scripts.planning.validate_discrete_scenario_benchmark
+          python -m scripts.planning.validate_stress_benchmark
+          python -m scripts.planning.validate_runtime_benchmark
+
+      - name: Commit validated target changes to validation branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/planning/run_sampling_tuning.py .agents/skills/sampling-planner-tuning/SKILL.md
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m 'Keep Sampling diagnostics opt-in'
+          git push origin HEAD:${GITHUB_REF_NAME}
