@@ -1,0 +1,176 @@
+name: Temporary Sampling Tuning Validation
+
+on:
+  push:
+    branches:
+      - chore/sampling-tuning-diagnostics
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run baseline full tuning
+        run: |
+          python -m scripts.planning.run_sampling_tuning
+          cp outputs/tuning/sampling_tuning_summary.json /tmp/baseline_sampling_tuning_summary.json
+
+      - name: Apply tuning-runner and skill upgrade
+        run: |
+          python tools/patch_sampling_tuning_upgrade.py
+          python -m py_compile scripts/planning/run_sampling_tuning.py
+
+      - name: Run modified full tuning
+        run: |
+          python -m scripts.planning.run_sampling_tuning
+          cp outputs/tuning/sampling_tuning_summary.json /tmp/modified_sampling_tuning_summary.json
+
+      - name: Compare core tuning results with baseline
+        run: |
+          python - <<'PY'
+          import json
+
+          with open('/tmp/baseline_sampling_tuning_summary.json', encoding='utf-8') as f:
+              baseline = json.load(f)
+          with open('/tmp/modified_sampling_tuning_summary.json', encoding='utf-8') as f:
+              modified = json.load(f)
+
+          drop_keys = {
+              'mean_runtime_ms',
+              'mean_feasible_candidate_count',
+              'mean_feasible_ratio',
+              'total_generated_candidate_count',
+              'total_feasible_candidate_count',
+              'total_curvature_reject_count',
+              'total_clearance_reject_count',
+              'total_road_boundary_reject_count',
+              'stop_after_structure',
+              'skip_terminal',
+              'terminal_sweep_skipped',
+          }
+
+          def normalize(value):
+              if isinstance(value, dict):
+                  return {
+                      key: normalize(item)
+                      for key, item in value.items()
+                      if key not in drop_keys
+                  }
+              if isinstance(value, list):
+                  return [normalize(item) for item in value]
+              return value
+
+          normalized_baseline = normalize(baseline)
+          normalized_modified = normalize(modified)
+
+          if normalized_baseline != normalized_modified:
+              raise SystemExit('Core tuning result changed after diagnostics upgrade.')
+
+          print('Core tuning result matches baseline exactly (excluding runtime and new diagnostics).')
+
+          for stage_name in ('stage_a_structure', 'stage_b_terminal'):
+              for config in modified[stage_name]['configs']:
+                  generated = config['total_generated_candidate_count']
+                  feasible = config['total_feasible_candidate_count']
+                  rejected = (
+                      config['total_curvature_reject_count']
+                      + config['total_clearance_reject_count']
+                      + config['total_road_boundary_reject_count']
+                  )
+                  expected_generated = config['candidate_count'] * config['total_count']
+                  if generated != expected_generated:
+                      raise SystemExit(
+                          f"{stage_name}/{config['name']}: generated count mismatch"
+                      )
+                  if feasible + rejected != generated:
+                      raise SystemExit(
+                          f"{stage_name}/{config['name']}: diagnostic accounting mismatch"
+                      )
+                  ratio = config['mean_feasible_ratio']
+                  if ratio is None or not 0.0 <= ratio <= 1.0:
+                      raise SystemExit(
+                          f"{stage_name}/{config['name']}: invalid feasible ratio"
+                      )
+
+          print('Candidate diagnostic accounting is internally consistent.')
+          PY
+
+      - name: Validate Stage-A-only mode
+        run: |
+          python -m scripts.planning.run_sampling_tuning --stop-after-structure
+          python - <<'PY'
+          import json
+          with open('outputs/tuning/sampling_tuning_summary.json', encoding='utf-8') as f:
+              data = json.load(f)
+          if 'stage_a_structure' not in data:
+              raise SystemExit('Stage A summary missing.')
+          if 'stage_b_terminal' in data or 'stage_c_weight_sensitivity' in data:
+              raise SystemExit('Stage-A-only mode continued past Stage A.')
+          if not data['metadata']['stop_after_structure']:
+              raise SystemExit('Stage-A-only metadata flag missing.')
+          print('Stage-A-only mode passed.')
+          PY
+
+      - name: Validate skip-terminal mode
+        run: |
+          python -m scripts.planning.run_sampling_tuning --skip-terminal
+          python - <<'PY'
+          import json
+          with open('outputs/tuning/sampling_tuning_summary.json', encoding='utf-8') as f:
+              data = json.load(f)
+          stage_a = data['stage_a_structure']
+          stage_b = data['stage_b_terminal']
+          if not stage_b['terminal_sweep_skipped']:
+              raise SystemExit('Skip-terminal metadata flag missing.')
+          if set(stage_a['pareto_config_names']) != set(stage_b['pareto_config_names']):
+              raise SystemExit('Skip-terminal mode changed the carried Pareto config set.')
+          for config in stage_b['configs']:
+              if config['final_lateral_offsets_m'] != [0.0]:
+                  raise SystemExit('Skip-terminal mode expanded terminal lateral state.')
+              if config['final_slope_offsets'] != [0.0]:
+                  raise SystemExit('Skip-terminal mode expanded terminal slope state.')
+          if 'stage_c_weight_sensitivity' not in data:
+              raise SystemExit('Skip-terminal mode did not continue to weight sensitivity.')
+          print('Skip-terminal mode passed.')
+          PY
+
+      - name: Run planning regressions
+        run: |
+          python -m scripts.planning.validate_reference_line
+          python -m scripts.planning.validate_frenet
+          python -m scripts.planning.validate_sampling_planner
+          python -m scripts.planning.validate_sampling_benchmark_adapter
+          python -m scripts.planning.validate_canonical_benchmark
+          python -m scripts.planning.validate_discrete_scenario_benchmark
+          python -m scripts.planning.validate_stress_benchmark
+          python -m scripts.planning.validate_runtime_benchmark
+
+      - name: Commit validated target changes to validation branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/planning/run_sampling_tuning.py .agents/skills/sampling-planner-tuning/SKILL.md
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m 'Improve Sampling tuning diagnostics'
+          git push origin HEAD:${GITHUB_REF_NAME}
