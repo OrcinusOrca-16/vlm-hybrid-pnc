@@ -39,6 +39,9 @@ from src.planning.path_objective import (
 from src.planning.reference_line import (
     ReferenceLine,
 )
+from src.config.vehicle import (
+    DEFAULT_VEHICLE_CONFIG,
+)
 
 
 @dataclass
@@ -1065,11 +1068,22 @@ def solve_matched_optimized_path(
     terminal_lateral_weight: float,
     terminal_first_derivative_weight: float,
     max_second_derivative_abs: float,
+    max_curvature: float | None = None,
     osqp_verbose: bool = DEFAULT_OPTIMIZATION_PLANNER_CONFIG.osqp_verbose,
     osqp_eps_abs: float = DEFAULT_OPTIMIZATION_PLANNER_CONFIG.osqp_eps_abs,
     osqp_eps_rel: float = DEFAULT_OPTIMIZATION_PLANNER_CONFIG.osqp_eps_rel,
 ) -> OptimizationPathResult:
     """Compatibility one-shot explicit QP without obstacle refinement."""
+
+    # Legacy argument retained only for API compatibility.
+    _ = max_second_derivative_abs
+
+    effective_max_curvature = (
+        DEFAULT_VEHICLE_CONFIG
+        .max_curvature_per_m
+        if max_curvature is None
+        else max_curvature
+    )
 
     qp_objective = build_explicit_qp_objective(
         num_points=len(s_values),
@@ -1093,7 +1107,7 @@ def solve_matched_optimized_path(
         initial_l=initial_l,
         initial_dl_ds=initial_dl_ds,
         initial_d2l_ds2=initial_d2l_ds2,
-        max_curvature=max_second_derivative_abs,
+        max_curvature=effective_max_curvature,
     )
     solution, _ = solve_qp(
         p_matrix=qp_objective.p,

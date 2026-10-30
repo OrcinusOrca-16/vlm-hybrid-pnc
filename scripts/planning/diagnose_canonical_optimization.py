@@ -108,6 +108,9 @@ def diagnose_branch(
                 DEFAULT_OPTIMIZATION_PLANNER_CONFIG
                 .max_second_derivative_abs
             ),
+            max_curvature=(
+                scenario.max_curvature
+            ),
         )
     except RuntimeError as error:
         print(
