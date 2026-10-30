@@ -109,7 +109,10 @@ def build_canonical_static_obstacle_scenario(
         obstacles=obstacles,
         road_min_l=road_config.min_l_m,
         road_max_l=road_config.max_l_m,
-        max_curvature=physical_config.max_curvature,
+        max_curvature=(
+            DEFAULT_VEHICLE_CONFIG
+            .max_curvature_per_m
+        ),
         minimum_clearance_m=(
             physical_config.minimum_clearance_m
         ),
@@ -134,23 +137,18 @@ def build_canonical_static_obstacle_scenario(
             objective_weights.lateral_weight
         ),
         first_derivative_weight=(
-            objective_weights
-            .first_derivative_weight
+            objective_weights.first_derivative_weight
         ),
         second_derivative_weight=(
-            objective_weights
-            .second_derivative_weight
+            objective_weights.second_derivative_weight
         ),
         third_derivative_weight=(
-            objective_weights
-            .third_derivative_weight
+            objective_weights.third_derivative_weight
         ),
         terminal_lateral_weight=(
-            objective_weights
-            .terminal_lateral_weight
+            objective_weights.terminal_lateral_weight
         ),
         terminal_first_derivative_weight=(
-            objective_weights
-            .terminal_first_derivative_weight
+            objective_weights.terminal_first_derivative_weight
         ),
     )

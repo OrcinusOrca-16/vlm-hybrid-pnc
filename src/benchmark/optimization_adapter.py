@@ -16,9 +16,6 @@ from src.planning.frenet import (
 )
 from src.planning.lateral_corridor import (
     build_base_lateral_corridor,
-    build_obstacle_branch_corridors,
-    inflate_frenet_obstacle,
-    project_obstacle_to_frenet,
 )
 from src.planning.optimization_planner import (
     plan_matched_multi_corridor_path,
@@ -74,7 +71,20 @@ def run_optimization_benchmark_adapter(
         .matched_objective_weights
     ),
 ) -> PlannerBenchmarkResult:
-    """Run the matched Optimization Planner through the benchmark interface."""
+    """
+    Run the production Optimization Planner.
+
+    The old inflated rectangular obstacle corridor is no
+    longer built here. The planner receives the road-only
+    base corridor, creates a heading-aware nominal branch,
+    and then applies exact-footprint sequential refinement.
+    """
+
+    # Kept in the public signature because existing diagnostic
+    # scripts may still pass them. Production obstacle planning
+    # no longer uses the legacy rectangular inflation corridor.
+    _ = obstacle_inflation_safety_margin_m
+    _ = corridor_affected_epsilon_m
 
     if len(obstacles) > 1:
         raise ValueError(
@@ -99,79 +109,34 @@ def run_optimization_benchmark_adapter(
         resolution_m=resolution_m,
     )
 
-    corridors = [
-        base_corridor,
-    ]
-
-    if obstacles:
-        frenet_obstacle = project_obstacle_to_frenet(
-            obstacle=obstacles[0],
-            reference_line=reference_line,
-        )
-
-        inflated_obstacle = inflate_frenet_obstacle(
-            obstacle=frenet_obstacle,
-            vehicle_params=vehicle_params,
-            minimum_clearance_m=minimum_clearance_m,
-            safety_margin_m=obstacle_inflation_safety_margin_m,
-        )
-
-        (
-            negative_l_corridor,
-            positive_l_corridor,
-        ) = build_obstacle_branch_corridors(
-            base_corridor=base_corridor,
-            obstacle=inflated_obstacle,
-            corridor_epsilon_m=corridor_affected_epsilon_m,
-        )
-
-        corridors = [
-            negative_l_corridor,
-            positive_l_corridor,
-        ]
-
     try:
         result = plan_matched_multi_corridor_path(
             reference_line=reference_line,
-            corridors=corridors,
+            corridors=[base_corridor],
             resolution_m=resolution_m,
             initial_l=initial_state.l,
             initial_dl_ds=initial_state.dl_ds,
             initial_d2l_ds2=initial_state.d2l_ds2,
             lateral_reference_m=lateral_reference_m,
-            terminal_lateral_target_m=(
-                terminal_lateral_target_m
-            ),
-            terminal_first_derivative_target=(
-                terminal_first_derivative_target
-            ),
-            lateral_weight=(
-                planner_objective_weights
-                .lateral_weight
-            ),
+            terminal_lateral_target_m=terminal_lateral_target_m,
+            terminal_first_derivative_target=terminal_first_derivative_target,
+            lateral_weight=planner_objective_weights.lateral_weight,
             first_derivative_weight=(
-                planner_objective_weights
-                .first_derivative_weight
+                planner_objective_weights.first_derivative_weight
             ),
             second_derivative_weight=(
-                planner_objective_weights
-                .second_derivative_weight
+                planner_objective_weights.second_derivative_weight
             ),
             third_derivative_weight=(
-                planner_objective_weights
-                .third_derivative_weight
+                planner_objective_weights.third_derivative_weight
             ),
             terminal_lateral_weight=(
-                planner_objective_weights
-                .terminal_lateral_weight
+                planner_objective_weights.terminal_lateral_weight
             ),
             terminal_first_derivative_weight=(
-                planner_objective_weights
-                .terminal_first_derivative_weight
+                planner_objective_weights.terminal_first_derivative_weight
             ),
-            max_second_derivative_abs=(
-                max_second_derivative_abs
-            ),
+            max_second_derivative_abs=max_second_derivative_abs,
             vehicle_params=vehicle_params,
             obstacles=obstacles,
             max_curvature=max_curvature,
@@ -182,11 +147,7 @@ def run_optimization_benchmark_adapter(
             osqp_eps_rel=osqp_eps_rel,
         )
     except RuntimeError as error:
-        planning_time_ms = (
-            perf_counter()
-            - start_time
-        ) * 1000.0
-
+        planning_time_ms = (perf_counter() - start_time) * 1000.0
         return PlannerBenchmarkResult.failed(
             planner_name="optimization",
             planning_time_ms=planning_time_ms,
@@ -199,37 +160,24 @@ def run_optimization_benchmark_adapter(
         second_derivative_weight=second_derivative_weight,
         third_derivative_weight=third_derivative_weight,
         terminal_lateral_weight=terminal_lateral_weight,
-        terminal_first_derivative_weight=(
-            terminal_first_derivative_weight
-        ),
+        terminal_first_derivative_weight=terminal_first_derivative_weight,
     )
 
-    canonical_evaluation = (
-        evaluate_frenet_trajectory_objective(
-            trajectory=result.trajectory,
-            resolution_m=resolution_m,
-            lateral_reference_m=lateral_reference_m,
-            terminal_lateral_target_m=(
-                terminal_lateral_target_m
-            ),
-            terminal_first_derivative_target=(
-                terminal_first_derivative_target
-            ),
-            weights=canonical_weights,
-        )
+    canonical_evaluation = evaluate_frenet_trajectory_objective(
+        trajectory=result.trajectory,
+        resolution_m=resolution_m,
+        lateral_reference_m=lateral_reference_m,
+        terminal_lateral_target_m=terminal_lateral_target_m,
+        terminal_first_derivative_target=terminal_first_derivative_target,
+        weights=canonical_weights,
     )
 
-    planning_time_ms = (
-        perf_counter()
-        - start_time
-    ) * 1000.0
+    planning_time_ms = (perf_counter() - start_time) * 1000.0
 
     return PlannerBenchmarkResult.succeeded(
         planner_name="optimization",
         trajectory=result.trajectory,
         path=result.path,
         planning_time_ms=planning_time_ms,
-        matched_objective_value=(
-            canonical_evaluation.total_cost
-        ),
+        matched_objective_value=canonical_evaluation.total_cost,
     )
