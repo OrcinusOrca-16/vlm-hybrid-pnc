@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "frozen_git_commit": "b838308a16735ca37515890c1bbb0e8dc54369a6",
+    "frozen_git_commit": "2e0bc5996fcad9c988541a3794d2da61e58cbfa9",
     "evaluation_scenario_count": 9,
     "comparison_protocol": {
       "success_rate": "all held-out scenarios",
@@ -76,6 +76,13 @@
       "horizon_discretization_epsilon_m": 1e-09,
       "corridor_affected_epsilon_m": 0.01,
       "obstacle_inflation_safety_margin_m": 0.05,
+      "sequential_max_iterations": 6,
+      "clearance_numerical_buffer_m": 0.001,
+      "trust_region_l_m": 0.15,
+      "trust_region_dl": 0.08,
+      "clearance_gradient_eps_l": 0.0001,
+      "clearance_gradient_eps_dl": 0.0001,
+      "heading_constraint_body_sample_count": 9,
       "matched_objective_weights": {
         "lateral_weight": 0.5,
         "first_derivative_weight": 1.0,
@@ -107,12 +114,10 @@
       ]
     },
     "optimization": {
-      "count": 8,
+      "count": 9,
       "total": 9,
-      "rate": 0.8888888888888888,
-      "failure_scenarios": [
-        "evaluation_road_half_width_1.85"
-      ]
+      "rate": 1.0,
+      "failure_scenarios": []
     }
   },
   "common_success": {
@@ -140,30 +145,30 @@
       "mean_rms_curvature_rate_per_m2": 0.02630801528296818
     },
     "optimization": {
-      "mean_canonical_objective": 0.6772310583456171,
-      "mean_terminal_lateral_error_m": 0.004392030494841125,
-      "mean_terminal_slope_error": 0.008333659146278826,
-      "mean_rms_lateral_deviation_m": 0.6026020436894609,
-      "mean_cartesian_path_length_m": 28.26407567829343,
-      "mean_minimum_obstacle_clearance_m": 0.704815089593948,
-      "worst_minimum_obstacle_clearance_m": 0.5118130820468543,
-      "mean_max_abs_curvature_per_m": 0.18123857002467228,
-      "mean_rms_curvature_per_m": 0.05614355639530074,
-      "mean_rms_curvature_rate_per_m2": 0.050270971224437896
+      "mean_canonical_objective": 0.202866452419667,
+      "mean_terminal_lateral_error_m": 0.0008307161657261238,
+      "mean_terminal_slope_error": 0.006961016085851117,
+      "mean_rms_lateral_deviation_m": 0.3771721178648509,
+      "mean_cartesian_path_length_m": 28.141687098801135,
+      "mean_minimum_obstacle_clearance_m": 0.5005220421012355,
+      "worst_minimum_obstacle_clearance_m": 0.5000963434824786,
+      "mean_max_abs_curvature_per_m": 0.11516412658102552,
+      "mean_rms_curvature_per_m": 0.04028667904170621,
+      "mean_rms_curvature_rate_per_m2": 0.022395258651301042
     }
   },
   "runtime_all_scenarios": {
     "sampling": {
-      "mean_ms": 184.20877777781345,
-      "median_ms": 182.7978000001167,
-      "min_ms": 180.42400000013004,
-      "max_ms": 188.86590000010983
+      "mean_ms": 190.66457777848376,
+      "median_ms": 188.39669999942998,
+      "min_ms": 181.4771000026667,
+      "max_ms": 220.49040000274545
     },
     "optimization": {
-      "mean_ms": 7.60178888888024,
-      "median_ms": 7.220499999675667,
-      "min_ms": 6.412600000203383,
-      "max_ms": 11.087299999871902
+      "mean_ms": 46.278566667347654,
+      "median_ms": 53.75309999726596,
+      "min_ms": 12.501900000643218,
+      "max_ms": 62.699800000700634
     }
   },
   "scenario_results": [
@@ -237,11 +242,11 @@
       "scenario": "evaluation_road_half_width_1.85",
       "sampling": {
         "success": false,
-        "failure_reason": "No physically feasible Sampling candidate: total candidates=45, curvature failures=0, clearance failures=34, road-boundary failures=30."
+        "failure_reason": "No physically feasible Sampling candidate: total candidates=45, curvature failures=8, clearance failures=34, road-boundary failures=30."
       },
       "optimization": {
-        "success": false,
-        "failure_reason": "No physically feasible matched optimization corridor found: corridor infeasible=1, QP failures=0, exact validation failures=1."
+        "success": true,
+        "failure_reason": null
       }
     },
     {
