@@ -29,6 +29,7 @@ from src.planning.soft_cost import matched_total_cost
 
 
 JUNCTION_DL_DS_VALUES = (-0.20, -0.15, -0.125, -0.10, -0.075, -0.05, -0.025, 0.00, 0.05, 0.10, 0.20)
+TRACKABILITY_WEIGHTS = (0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 10.0)
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,15 @@ class CandidateMetadata:
     trajectory: FrenetTrajectory
     path: list
     selection_objective: float
+
+
+@dataclass(frozen=True)
+class CandidateEvaluation:
+    junction_dl_ds: float
+    feasible: bool
+    geometric_cost: float
+    safe_speed_mps: float | None
+    speed_cost: float | None
 
 
 def matched_selection_cost(trajectory, scenario) -> float:
@@ -85,6 +95,13 @@ def minimum_clearance(path, scenario) -> float:
     )
 
 
+def speed_trackability_cost(safe_speed_mps: float, target_speed_mps: float) -> float:
+    if target_speed_mps <= 0.0:
+        return 0.0
+    normalized_deficit = max(0.0, target_speed_mps - safe_speed_mps) / target_speed_mps
+    return normalized_deficit**2
+
+
 def reproduce_production_winner(scenario) -> CandidateMetadata:
     initial = vehicle_state_to_frenet(vehicle_state=scenario.vehicle_state, reference_line=scenario.reference_line)
     config = DEFAULT_SAMPLING_PLANNER_CONFIG
@@ -124,7 +141,6 @@ def reproduce_production_winner(scenario) -> CandidateMetadata:
         raise RuntimeError("No physically feasible production Sampling candidate found.")
 
     winner = min(candidates, key=lambda candidate: candidate.selection_objective)
-
     adapter_result = run_sampling_benchmark_adapter(
         reference_line=scenario.reference_line,
         vehicle_state=scenario.vehicle_state,
@@ -191,12 +207,12 @@ def build_fixed_geometry_candidate(scenario, winner: CandidateMetadata, junction
     return trajectory, path
 
 
-def describe_candidate(junction_dl_ds: float, trajectory, path, scenario) -> None:
+def evaluate_candidate(junction_dl_ds: float, trajectory, path, scenario) -> CandidateEvaluation:
     curvature_ok, clearance_ok, road_ok = physical_flags(trajectory, path, scenario)
     feasible = curvature_ok and clearance_ok and road_ok
     min_clearance = minimum_clearance(path, scenario)
     max_curvature = max(abs(point.curvature) for point in path)
-    objective = matched_selection_cost(trajectory, scenario)
+    geometric_cost = matched_selection_cost(trajectory, scenario)
 
     if curvature_ok:
         limiting = find_safe_speed_limiting_segment(
@@ -212,11 +228,16 @@ def describe_candidate(junction_dl_ds: float, trajectory, path, scenario) -> Non
             max_steering_angle=MPC_MAX_STEERING_ANGLE,
             max_steering_rate=MPC_MAX_STEERING_RATE,
         )
+        speed_cost = speed_trackability_cost(safe_speed, scenario.vehicle_state.speed)
         max_gradient_text = f"{0.0 if limiting is None else abs(limiting.dsteering_ds):.5f}"
         safe_speed_text = f"{safe_speed:6.3f}"
+        speed_cost_text = f"{speed_cost:.6f}"
     else:
+        safe_speed = None
+        speed_cost = None
         max_gradient_text = "   n/a "
         safe_speed_text = "   n/a"
+        speed_cost_text = "   n/a  "
 
     baseline = " <-- baseline" if abs(junction_dl_ds) < 1e-12 else ""
     print(
@@ -224,8 +245,31 @@ def describe_candidate(junction_dl_ds: float, trajectory, path, scenario) -> Non
         f"curv={str(curvature_ok):5s} clear={str(clearance_ok):5s} road={str(road_ok):5s}  "
         f"min_clear={min_clearance:+.3f} m  max|kappa|={max_curvature:.5f}  "
         f"max|d_delta/ds|={max_gradient_text} rad/m  v_safe={safe_speed_text} m/s  "
-        f"objective={objective:.6f}{baseline}"
+        f"J_geo={geometric_cost:.6f}  J_speed={speed_cost_text}{baseline}"
     )
+    return CandidateEvaluation(
+        junction_dl_ds=junction_dl_ds,
+        feasible=feasible,
+        geometric_cost=geometric_cost,
+        safe_speed_mps=safe_speed,
+        speed_cost=speed_cost,
+    )
+
+
+def print_trackability_weight_sweep(evaluations: list[CandidateEvaluation]) -> None:
+    feasible = [item for item in evaluations if item.feasible and item.speed_cost is not None]
+    if not feasible:
+        raise RuntimeError("No feasible candidate is available for trackability-cost ranking.")
+
+    print("\n=== Trackability-weight winner sweep ===")
+    for weight in TRACKABILITY_WEIGHTS:
+        winner = min(feasible, key=lambda item: item.geometric_cost + weight * item.speed_cost)
+        total_cost = winner.geometric_cost + weight * winner.speed_cost
+        print(
+            f"w_track={weight:>4.1f}  winner junction_dl={winner.junction_dl_ds:+.3f}  "
+            f"v_safe={winner.safe_speed_mps:.3f} m/s  J_geo={winner.geometric_cost:.6f}  "
+            f"J_speed={winner.speed_cost:.6f}  J_total={total_cost:.6f}"
+        )
 
 
 def main() -> None:
@@ -239,9 +283,12 @@ def main() -> None:
     )
     print("\n=== Fixed-geometry junction dl/ds sweep ===")
 
+    evaluations = []
     for junction_dl_ds in JUNCTION_DL_DS_VALUES:
         trajectory, path = build_fixed_geometry_candidate(scenario=scenario, winner=winner, junction_dl_ds=junction_dl_ds)
-        describe_candidate(junction_dl_ds, trajectory, path, scenario)
+        evaluations.append(evaluate_candidate(junction_dl_ds, trajectory, path, scenario))
+
+    print_trackability_weight_sweep(evaluations)
 
 
 if __name__ == "__main__":
