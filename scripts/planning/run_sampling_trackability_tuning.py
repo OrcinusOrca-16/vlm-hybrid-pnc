@@ -1,4 +1,4 @@
-"""Development-only tuning for Sampling junction slope and trackability cost.
+"""Development-only joint tuning for Sampling structure and trackability.
 
 This script uses only build_development_tuning_scenarios(). It never imports
 or runs the frozen final-evaluation suite.
@@ -26,14 +26,32 @@ from src.planning.sampling_planner import sample_quintic_candidate
 from src.planning.soft_cost import matched_total_cost
 
 
+LATERAL_PROFILES = {
+    "r1.50_d0.50": tuple(round(0.5 * index, 10) for index in range(-3, 4)),
+    "r2.00_d0.50": tuple(round(0.5 * index, 10) for index in range(-4, 5)),
+    "r2.00_d0.40": tuple(round(0.4 * index, 10) for index in range(-5, 6)),
+    "r2.00_d0.25": tuple(round(0.25 * index, 10) for index in range(-8, 9)),
+}
+
+LENGTH_PROFILES = {
+    "baseline": (10.0, 14.0, 18.0),
+    "efficient": (8.0, 22.0),
+    "balanced": (8.0, 14.0, 22.0),
+    "mid_dense": (8.0, 12.0, 16.0, 22.0),
+    "dense": (6.0, 10.0, 14.0, 18.0, 22.0),
+}
+
 JUNCTION_PROFILES = {
     "strict": (0.0,),
     "slope_005": (-0.05, 0.0, 0.05),
     "slope_010": (-0.10, -0.05, 0.0, 0.05, 0.10),
     "slope_015": (-0.15, -0.10, -0.05, 0.0, 0.05, 0.10, 0.15),
 }
+
 TRACKABILITY_WEIGHTS = (0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 7.5, 10.0)
-ALL_JUNCTION_SLOPES = tuple(sorted({value for values in JUNCTION_PROFILES.values() for value in values}))
+ALL_BYPASS_LATERALS = tuple(sorted({value for profile in LATERAL_PROFILES.values() for value in profile}))
+ALL_BYPASS_LENGTHS = tuple(sorted({value for profile in LENGTH_PROFILES.values() for value in profile}))
+ALL_JUNCTION_SLOPES = tuple(sorted({value for profile in JUNCTION_PROFILES.values() for value in profile}))
 
 
 @dataclass(frozen=True)
@@ -55,8 +73,21 @@ class ScenarioSelection:
 
 
 @dataclass(frozen=True)
+class CoverageConfig:
+    structure_name: str
+    lateral_values: tuple[float, ...]
+    length_values: tuple[float, ...]
+    junction_profile_name: str
+    junction_slopes: tuple[float, ...]
+    success_count: int
+    total_count: int
+    failure_names: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class ConfigSummary:
-    profile_name: str
+    structure_name: str
+    junction_profile_name: str
     trackability_weight: float
     success_count: int
     total_count: int
@@ -68,6 +99,8 @@ class ConfigSummary:
     early_obstacle_speed_mps: float | None
     narrow_190_success: bool
     narrow_175_success: bool
+    long_1600_success: bool
+    long_3600_success: bool
     selections: tuple[ScenarioSelection, ...]
 
 
@@ -146,11 +179,9 @@ def build_candidate(
 
 
 def build_candidate_pool(scenario: BenchmarkScenario) -> tuple[CandidateRecord, ...]:
-    config = DEFAULT_SAMPLING_PLANNER_CONFIG
     records = []
-
-    for bypass_l in config.returning_bypass_lateral_positions_m:
-        for bypass_length in config.returning_bypass_lengths_m:
+    for bypass_l in ALL_BYPASS_LATERALS:
+        for bypass_length in ALL_BYPASS_LENGTHS:
             for junction_dl_ds in ALL_JUNCTION_SLOPES:
                 candidate = build_candidate(
                     scenario=scenario,
@@ -198,23 +229,69 @@ def build_candidate_pool(scenario: BenchmarkScenario) -> tuple[CandidateRecord, 
                     speed_cost=speed_cost(safe_speed, scenario.vehicle_state.speed),
                     minimum_clearance_m=minimum_clearance(path, scenario),
                 ))
-
     return tuple(records)
+
+
+def candidate_allowed(
+    record: CandidateRecord,
+    lateral_values: tuple[float, ...],
+    length_values: tuple[float, ...],
+    junction_slopes: tuple[float, ...],
+) -> bool:
+    return (
+        record.bypass_l in set(lateral_values)
+        and record.bypass_length in set(length_values)
+        and record.junction_dl_ds in set(junction_slopes)
+    )
 
 
 def select_for_config(
     scenario: BenchmarkScenario,
     pool: tuple[CandidateRecord, ...],
-    allowed_slopes: tuple[float, ...],
+    lateral_values: tuple[float, ...],
+    length_values: tuple[float, ...],
+    junction_slopes: tuple[float, ...],
     trackability_weight: float,
 ) -> ScenarioSelection:
-    allowed = set(allowed_slopes)
-    candidates = [record for record in pool if record.junction_dl_ds in allowed]
+    candidates = [
+        record for record in pool
+        if candidate_allowed(record, lateral_values, length_values, junction_slopes)
+    ]
     if not candidates:
         return ScenarioSelection(scenario_name=scenario.name, success=False, selected=None)
 
     winner = min(candidates, key=lambda record: record.geometric_cost + trackability_weight * record.speed_cost)
     return ScenarioSelection(scenario_name=scenario.name, success=True, selected=winner)
+
+
+def evaluate_coverage(
+    scenarios: tuple[BenchmarkScenario, ...],
+    pools: dict[str, tuple[CandidateRecord, ...]],
+    structure_name: str,
+    lateral_values: tuple[float, ...],
+    length_values: tuple[float, ...],
+    junction_profile_name: str,
+    junction_slopes: tuple[float, ...],
+) -> CoverageConfig:
+    failure_names = []
+    for scenario in scenarios:
+        any_candidate = any(
+            candidate_allowed(record, lateral_values, length_values, junction_slopes)
+            for record in pools[scenario.name]
+        )
+        if not any_candidate:
+            failure_names.append(scenario.name)
+
+    return CoverageConfig(
+        structure_name=structure_name,
+        lateral_values=lateral_values,
+        length_values=length_values,
+        junction_profile_name=junction_profile_name,
+        junction_slopes=junction_slopes,
+        success_count=len(scenarios) - len(failure_names),
+        total_count=len(scenarios),
+        failure_names=tuple(failure_names),
+    )
 
 
 def optional_mean(values: list[float]) -> float | None:
@@ -228,15 +305,16 @@ def optional_min(values: list[float]) -> float | None:
 def summarize_config(
     scenarios: tuple[BenchmarkScenario, ...],
     pools: dict[str, tuple[CandidateRecord, ...]],
-    profile_name: str,
-    allowed_slopes: tuple[float, ...],
+    coverage: CoverageConfig,
     trackability_weight: float,
 ) -> ConfigSummary:
     selections = tuple(
         select_for_config(
             scenario=scenario,
             pool=pools[scenario.name],
-            allowed_slopes=allowed_slopes,
+            lateral_values=coverage.lateral_values,
+            length_values=coverage.length_values,
+            junction_slopes=coverage.junction_slopes,
             trackability_weight=trackability_weight,
         )
         for scenario in scenarios
@@ -248,11 +326,11 @@ def summarize_config(
     speed_costs = [item.speed_cost for item in selected]
     geometric_costs = [item.geometric_cost for item in selected]
     clearances = [item.minimum_clearance_m for item in selected if math.isfinite(item.minimum_clearance_m)]
-
     early = next((item.selected for item in selections if item.scenario_name == "tuning_obstacle_longitudinal_18.00"), None)
 
     return ConfigSummary(
-        profile_name=profile_name,
+        structure_name=coverage.structure_name,
+        junction_profile_name=coverage.junction_profile_name,
         trackability_weight=trackability_weight,
         success_count=len(success_names),
         total_count=len(scenarios),
@@ -264,23 +342,33 @@ def summarize_config(
         early_obstacle_speed_mps=None if early is None else early.safe_speed_mps,
         narrow_190_success="tuning_road_half_width_1.90" in success_names,
         narrow_175_success="road_half_width_1.75" in success_names,
+        long_1600_success="obstacle_longitudinal_16.00" in success_names,
+        long_3600_success="obstacle_longitudinal_36.00" in success_names,
         selections=selections,
     )
 
 
-def value(value: float | None, digits: int = 3) -> str:
-    return "n/a" if value is None else f"{value:.{digits}f}"
+def value(number: float | None, digits: int = 3) -> str:
+    return "n/a" if number is None else f"{number:.{digits}f}"
+
+
+def print_coverage(coverage: CoverageConfig) -> None:
+    print(
+        f"{coverage.structure_name:26s} {coverage.junction_profile_name:10s}  "
+        f"success={coverage.success_count:>2d}/{coverage.total_count:<2d}  "
+        f"fail={','.join(coverage.failure_names) if coverage.failure_names else '-'}"
+    )
 
 
 def print_summary(summary: ConfigSummary) -> None:
     print(
-        f"{summary.profile_name:10s}  w={summary.trackability_weight:>4.1f}  "
+        f"{summary.structure_name:26s} {summary.junction_profile_name:10s} w={summary.trackability_weight:>4.1f}  "
         f"success={summary.success_count:>2d}/{summary.total_count:<2d}  "
-        f"mean_v={value(summary.mean_safe_speed_mps)}  min_v={value(summary.minimum_safe_speed_mps)}  "
-        f"early18_v={value(summary.early_obstacle_speed_mps)}  "
-        f"mean_Jgeo={value(summary.mean_geometric_cost, 4)}  "
-        f"min_clear={value(summary.minimum_clearance_m)}  "
-        f"road1.90={summary.narrow_190_success} road1.75={summary.narrow_175_success}"
+        f"mean_v={value(summary.mean_safe_speed_mps)} min_v={value(summary.minimum_safe_speed_mps)}  "
+        f"early18={value(summary.early_obstacle_speed_mps)}  "
+        f"mean_Jgeo={value(summary.mean_geometric_cost, 4)} min_clear={value(summary.minimum_clearance_m)}  "
+        f"r1.90={summary.narrow_190_success} r1.75={summary.narrow_175_success} "
+        f"s16={summary.long_1600_success} s36={summary.long_3600_success}"
     )
 
 
@@ -295,76 +383,114 @@ def pareto_dominates(a: ConfigSummary, b: ConfigSummary) -> bool:
     return all(x <= y for x, y in zip(a_values, b_values)) and any(x < y for x, y in zip(a_values, b_values))
 
 
-def print_pareto(summaries: list[ConfigSummary]) -> None:
-    max_success = max(summary.success_count for summary in summaries)
-    max_coverage = [summary for summary in summaries if summary.success_count == max_success]
-    frontier = [
-        reference
-        for reference in max_coverage
-        if not any(pareto_dominates(candidate, reference) for candidate in max_coverage if candidate is not reference)
-    ]
-    frontier.sort(key=lambda item: (item.mean_speed_cost if item.mean_speed_cost is not None else math.inf, item.mean_geometric_cost if item.mean_geometric_cost is not None else math.inf))
-
-    print("\n=== Max-coverage Pareto frontier: speed deficit vs geometric objective ===")
-    for summary in frontier:
-        print_summary(summary)
-
-
 def print_selected_cases(summary: ConfigSummary) -> None:
-    print(f"\n=== Selected cases for {summary.profile_name}, w={summary.trackability_weight:.1f} ===")
+    print(
+        f"\n=== Selected cases: {summary.structure_name}, {summary.junction_profile_name}, "
+        f"w={summary.trackability_weight:.1f} ==="
+    )
     for item in summary.selections:
         if item.selected is None:
             print(f"{item.scenario_name:38s} FAIL")
             continue
         selected = item.selected
+        clearance_text = "inf" if not math.isfinite(selected.minimum_clearance_m) else f"{selected.minimum_clearance_m:.3f}"
         print(
             f"{item.scenario_name:38s} v_safe={selected.safe_speed_mps:6.3f}  "
             f"junction_dl={selected.junction_dl_ds:+.3f}  bypass_l={selected.bypass_l:+.2f}  "
             f"bypass_len={selected.bypass_length:4.1f}  J_geo={selected.geometric_cost:.5f}  "
-            f"clear={selected.minimum_clearance_m if math.isfinite(selected.minimum_clearance_m) else math.inf:.3f}"
+            f"clear={clearance_text}"
         )
 
 
 def main() -> None:
     scenarios = build_development_tuning_scenarios()
-    print(f"Building candidate pools for {len(scenarios)} development scenarios...")
+    print(f"Building joint candidate pools for {len(scenarios)} development scenarios...")
     pools = {}
     for scenario in scenarios:
         pool = build_candidate_pool(scenario)
         pools[scenario.name] = pool
         print(f"  {scenario.name:38s} feasible pooled candidates={len(pool)}")
 
+    coverage_results = []
+    for lateral_name, lateral_values in LATERAL_PROFILES.items():
+        for length_name, length_values in LENGTH_PROFILES.items():
+            structure_name = f"{lateral_name}__{length_name}"
+            for junction_name, junction_slopes in JUNCTION_PROFILES.items():
+                coverage_results.append(
+                    evaluate_coverage(
+                        scenarios=scenarios,
+                        pools=pools,
+                        structure_name=structure_name,
+                        lateral_values=lateral_values,
+                        length_values=length_values,
+                        junction_profile_name=junction_name,
+                        junction_slopes=junction_slopes,
+                    )
+                )
+
+    max_success = max(result.success_count for result in coverage_results)
+    max_coverage = [result for result in coverage_results if result.success_count == max_success]
+
+    print("\n=== Stage 1: maximum development coverage configs ===")
+    print(f"max development coverage = {max_success}/{len(scenarios)}")
+    for result in max_coverage:
+        print_coverage(result)
+
     summaries = []
-    print("\n=== Config sweep ===")
-    for profile_name, slopes in JUNCTION_PROFILES.items():
+    for coverage in max_coverage:
         for weight in TRACKABILITY_WEIGHTS:
-            summary = summarize_config(
-                scenarios=scenarios,
-                pools=pools,
-                profile_name=profile_name,
-                allowed_slopes=slopes,
-                trackability_weight=weight,
+            summaries.append(
+                summarize_config(
+                    scenarios=scenarios,
+                    pools=pools,
+                    coverage=coverage,
+                    trackability_weight=weight,
+                )
             )
-            summaries.append(summary)
-            print_summary(summary)
 
-    print_pareto(summaries)
-
-    baseline = next(summary for summary in summaries if summary.profile_name == "strict" and summary.trackability_weight == 0.0)
-    max_success = max(summary.success_count for summary in summaries)
-    max_coverage = [summary for summary in summaries if summary.success_count == max_success]
-    trackability_best = min(
-        max_coverage,
+    frontier = [
+        reference
+        for reference in summaries
+        if not any(pareto_dominates(candidate, reference) for candidate in summaries if candidate is not reference)
+    ]
+    frontier.sort(
         key=lambda item: (
             item.mean_speed_cost if item.mean_speed_cost is not None else math.inf,
             item.mean_geometric_cost if item.mean_geometric_cost is not None else math.inf,
             item.trackability_weight,
-        ),
+        )
     )
 
-    print_selected_cases(baseline)
-    if trackability_best != baseline:
-        print_selected_cases(trackability_best)
+    print("\n=== Stage 2: max-coverage Pareto frontier ===")
+    for summary in frontier:
+        print_summary(summary)
+
+    current_structure = "r2.00_d0.50__dense"
+    current_coverage = next(
+        (
+            result for result in coverage_results
+            if result.structure_name == current_structure and result.junction_profile_name == "strict"
+        ),
+        None,
+    )
+    if current_coverage is not None:
+        baseline = summarize_config(
+            scenarios=scenarios,
+            pools=pools,
+            coverage=current_coverage,
+            trackability_weight=0.0,
+        )
+        print_selected_cases(baseline)
+
+    best_speed = min(
+        summaries,
+        key=lambda item: (
+            item.mean_speed_cost if item.mean_speed_cost is not None else math.inf,
+            item.mean_geometric_cost if item.mean_geometric_cost is not None else math.inf,
+        ),
+    )
+    if current_coverage is None or best_speed.structure_name != current_structure or best_speed.junction_profile_name != "strict" or best_speed.trackability_weight != 0.0:
+        print_selected_cases(best_speed)
 
 
 if __name__ == "__main__":
