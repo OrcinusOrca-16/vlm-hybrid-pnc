@@ -611,6 +611,25 @@ The project intentionally keeps several limitations explicit:
 
 ---
 
+## Engineering Discussion and Improvement Directions
+
+The benchmark is intended not only to report pass/fail results, but also to expose where each formulation is strong, where the current model is approximate, and what should be improved next.
+
+| Observation | Interpretation | Improvement direction |
+| --- | --- | --- |
+| Sampling fails the `1.85 m` half-width case while Optimization passes | The frozen 45-candidate library does not cover this narrow feasible region under the current acceptance contract; this is not proof that Sampling as a method is inherently infeasible | Adaptive or denser candidate generation, or a coarse-to-fine Sampling strategy, evaluated on new development cases rather than tuned against the frozen evaluation result |
+| Optimization's worst successful clearance is only slightly above `0.5 m` | A constrained optimizer can use the available feasible boundary aggressively when additional clearance is not rewarded by the objective | Add a robustness buffer or clearance soft cost, then retune and evaluate the safety-margin / path-quality trade-off |
+| Optimization runtime increased from ~`7.6 ms` to ~`46.3 ms` after redesign | Explicit physical state, repeated exact geometry checks, numerical gradients, and sequential QP refinement improve consistency at a substantial computational cost | Investigate warm starts, analytical clearance gradients, active-constraint screening, adaptive refinement, and earlier convergence termination |
+| Obstacle clearance uses rotated vehicle geometry but road-boundary acceptance still uses Frenet width | The current physical model is not equally exact for obstacle and road geometry; rotated-corner diagnostics can expose optimistic road-boundary acceptance | Promote rotated-footprint road containment from diagnostic to production constraint, followed by a new regression cycle |
+| Collision checking is exact only at returned sampled poses | A safe pair of adjacent knots does not mathematically guarantee continuous clearance between them | Add inter-knot / swept-volume collision checking or adaptive spatial sampling around near-boundary regions |
+| Planner feasibility is currently evaluated mainly open-loop | A geometrically valid path can still be difficult for a real controller to track under steering-rate, model, or actuator limits | Run Sampling and Optimization through the same curvature-aware MPC and compare closed-loop tracking, steering, constraint utilization, and failures |
+
+The highest-priority improvement is the last item: **Planning–Control closed-loop validation**. It directly tests the engineering question that originally triggered the Optimization redesign — whether a path accepted by Planning remains trackable under the same vehicle assumptions used by Control.
+
+The other items are deliberately kept as improvement directions rather than silently changed after observing the current evaluation results. Any change to clearance margin, candidate density, road geometry, or sequential-refinement behavior would require a new development/tuning cycle and a clearly versioned evaluation protocol.
+
+---
+
 ## Next Step
 
 The immediate next milestone is **curvature-aware Planning & Control integration**:
