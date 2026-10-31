@@ -262,6 +262,19 @@ Current refinement settings include:
 
 This retains structured convex QP subproblems while allowing orientation-dependent obstacle geometry to affect the solution.
 
+### Computational cost of the redesign
+
+The added physical consistency is not free. In the original frozen benchmark, the simpler `l`-only convex-corridor Optimization Planner averaged approximately **7.6 ms** per complete planner call. After the explicit-state and sequential-convex redesign, the current Optimization Planner averages approximately **46.3 ms**.
+
+| Optimization version | Main formulation | Mean planner runtime |
+| --- | --- | ---: |
+| Original | `l`-only + finite differences + convex corridor | ~7.6 ms |
+| Redesigned | explicit `[l, l', l'']` + exact footprint evaluation + sequential QP refinement | ~46.3 ms |
+
+The redesign therefore increases the historical mean Optimization runtime by roughly **6.1×**. The increase comes from repeated QP solves, Cartesian reconstruction, exact footprint evaluation, numerical clearance gradients, and trust-region refinement.
+
+This is a deliberate engineering trade-off: the planner spends substantially more computation to obtain vehicle-consistent curvature handling and orientation-aware obstacle feasibility. Even after this increase, it remains about **4.1× faster** than the frozen Sampling Planner benchmark at approximately `190.7 ms` mean runtime.
+
 ---
 
 ## Common Physical Acceptance Contract
@@ -373,7 +386,7 @@ The result is a trade-off rather than universal dominance:
 | Sampling | 190.665 | 188.397 | 181.477 | 220.490 |
 | Optimization | **46.279** | **53.753** | **12.502** | **62.700** |
 
-The redesigned Optimization Planner is approximately **4.1× faster** on mean runtime in this benchmark.
+The redesigned Optimization Planner is approximately **4.1× faster** on mean runtime in this benchmark. Relative to the original Optimization formulation's historical mean of approximately **7.6 ms**, the redesign is roughly **6.1× slower**, reflecting the added sequential refinement and exact geometry work described above.
 
 ---
 
