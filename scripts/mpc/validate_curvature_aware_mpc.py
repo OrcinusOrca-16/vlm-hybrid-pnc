@@ -10,6 +10,7 @@ from src.common.types import (
 from src.control.curvature_aware_mpc import (
     CurvatureAwareMPCController,
 )
+from src.control.lateral_mpc import MPCController
 from src.control.mpc_config import (
     MPC_MAX_STEERING_ANGLE,
     MPC_MAX_STEERING_RATE,
@@ -29,7 +30,8 @@ SPEED_MPS = 5.0
 SIMULATION_STEPS = 80
 
 STEERING_TOLERANCE = 1e-3
-RATE_TOLERANCE = 0.01
+# OSQP numerical tolerance, consistent with the existing MPC calibration check.
+RATE_TOLERANCE = 0.02
 
 
 def normalize_angle(
@@ -115,6 +117,40 @@ def validate_speed_rule() -> None:
     assert abs(speed - 4.0) < 1e-9
 
     print("constant safe-speed rule: PASS")
+
+
+def validate_straight_equivalence() -> None:
+    """Zero reference curvature must reproduce the frozen baseline MPC."""
+
+    cases = [
+        (0.0, 0.0, 5.0),
+        (0.5, 0.0, 5.0),
+        (0.0, 0.05, 10.0),
+        (0.5, 0.05, 10.0),
+    ]
+
+    for lateral_error, heading_error, speed_mps in cases:
+        baseline = MPCController()
+        curvature_aware = CurvatureAwareMPCController()
+
+        baseline_steering = baseline.compute_steering(
+            lateral_error=lateral_error,
+            heading_error=heading_error,
+            speed_mps=speed_mps,
+        )
+
+        curvature_aware_steering = curvature_aware.compute_steering(
+            lateral_error=lateral_error,
+            heading_error=heading_error,
+            speed_mps=speed_mps,
+            reference_curvature=0.0,
+        )
+
+        assert abs(
+            curvature_aware_steering - baseline_steering
+        ) < 1e-9
+
+    print("zero-curvature baseline equivalence: PASS")
 
 
 def validate_curved_equilibrium(
@@ -330,6 +366,7 @@ def run_curved_recovery_case(
 
 def main() -> None:
     validate_speed_rule()
+    validate_straight_equivalence()
 
     validate_curved_equilibrium(
         reference_curvature=0.05
