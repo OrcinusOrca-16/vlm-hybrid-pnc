@@ -492,7 +492,69 @@ Limitations:
 
 ---
 
-## 15. Main Engineering Takeaway
+## 15. Engineering Discussion and Improvement Directions
+
+The benchmark results support several engineering interpretations beyond the raw success-rate and runtime numbers.
+
+### 15.1 Sampling coverage versus continuous freedom
+
+**Observation:** Sampling fails `evaluation_road_half_width_1.85`, while the redesigned Optimization Planner succeeds.
+
+**Interpretation:** The frozen Sampling Planner searches only 45 predefined bypass candidates. The result therefore shows a coverage limitation of this candidate family under the current acceptance contract, not a proof that sampling-based planning is fundamentally incapable of solving the scene.
+
+**Improvement direction:** Candidate generation could become adaptive or coarse-to-fine, increasing density only near promising or constraint-active regions. Such a change should be tuned on new development cases rather than against the already-observed frozen evaluation failure.
+
+### 15.2 Clearance margin and optimizer behavior
+
+**Observation:** The redesigned Optimization Planner's worst successful obstacle clearance is only slightly above the strict `0.5 m` threshold.
+
+**Interpretation:** This is consistent with constrained optimization using the feasible boundary aggressively when the objective does not explicitly reward additional clearance. A lower canonical objective therefore should not be interpreted as a larger safety margin.
+
+**Improvement direction:** A robustness buffer or explicit clearance soft cost could be introduced, followed by a new tuning cycle that measures the trade-off among clearance margin, path quality, feasibility, and runtime.
+
+### 15.3 Runtime cost of physical consistency
+
+**Observation:** Mean Optimization runtime increased from approximately `7.6 ms` to `46.3 ms` after the redesign.
+
+**Interpretation:** The physical-consistency improvements introduce repeated QP solves, Cartesian reconstruction, exact footprint checks, numerical gradients, and trust-region refinement. The redesign intentionally exchanges some runtime for a more meaningful feasible set.
+
+**Improvement direction:** Potential optimizations include warm-starting sequential QPs, replacing numerical gradients with analytical clearance gradients, screening inactive constraints, terminating refinement once exact margins are sufficient, and applying adaptive refinement only around near-boundary regions.
+
+### 15.4 Inconsistent geometric fidelity between obstacle and road constraints
+
+**Observation:** Obstacle clearance uses rotated vehicle-footprint geometry, while the production road-boundary validator still uses the simpler Frenet-width contract.
+
+**Interpretation:** The project currently uses different geometric fidelity for obstacle and road constraints. The independent rotated-corner diagnostic has already shown cases where the Frenet-width road check can be optimistic.
+
+**Improvement direction:** Promote rotated-footprint road containment from a diagnostic to a production acceptance constraint, then rerun development regression before defining any new evaluation result.
+
+### 15.5 Sampled-pose versus continuous collision safety
+
+**Observation:** Exact obstacle clearance is checked at returned path poses only.
+
+**Interpretation:** Two adjacent collision-free knots do not mathematically guarantee collision-free motion between them, especially near a tight obstacle boundary.
+
+**Improvement direction:** Add inter-knot or swept-volume collision checking, or adaptively increase spatial resolution when clearance approaches the configured threshold.
+
+### 15.6 Open-loop planner feasibility versus closed-loop trackability
+
+**Observation:** The current planner benchmark evaluates geometric feasibility and path quality, while the redesigned paths have not yet been compared through the same curvature-aware closed-loop controller.
+
+**Interpretation:** The original redesign was triggered precisely because open-loop planner acceptance did not guarantee consistency with downstream vehicle capability. The logical final test is therefore not another open-loop planner metric but a common Planning–Control closed-loop evaluation.
+
+**Improvement direction:** Feed both Sampling and Optimization paths into the same curvature-aware MPC and compare tracking error, steering-angle/rate utilization, controller saturation, path deviation, runtime, and failure cases.
+
+### Priority
+
+The highest-priority improvement is the Planning–Control closed-loop experiment. It directly answers the engineering question that motivated the redesign:
+
+> Does a path accepted by Planning remain practically trackable under the same vehicle assumptions used by Control?
+
+The other improvements should remain explicitly versioned future work rather than being silently applied to the current frozen benchmark. Changes to candidate density, clearance margin, road geometry, collision checking, or sequential-refinement logic would require a new development/tuning cycle and a clearly defined evaluation protocol.
+
+---
+
+## 16. Main Engineering Takeaway
 
 The most important result is not simply `8/9` versus `9/9`.
 
@@ -507,15 +569,16 @@ The project demonstrates the following engineering process:
 7. redesign the Optimization formulation rather than continuing weight tuning;
 8. accept the resulting runtime increase as an explicit engineering trade-off;
 9. validate on development/stress scenarios;
-10. rerun a frozen evaluation suite without retuning Sampling on its observed final failure.
+10. rerun a frozen evaluation suite without retuning Sampling on its observed final failure;
+11. preserve remaining limitations as explicit improvement items rather than hiding them.
 
 The central lesson is:
 
-> A mathematically feasible planner output is not automatically a physically trackable vehicle path. Planning constraints must remain consistent with downstream Control and vehicle capability, and improving that consistency can require a measurable computation-time trade-off.
+> A mathematically feasible planner output is not automatically a physically trackable vehicle path. Planning constraints must remain consistent with downstream Control and vehicle capability, and improving that consistency can require measurable trade-offs in computation, robustness margin, and model complexity.
 
 ---
 
-## 16. Reproducibility Artifacts
+## 17. Reproducibility Artifacts
 
 Final evaluation runner:
 
