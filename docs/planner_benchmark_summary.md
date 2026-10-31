@@ -2,335 +2,419 @@
 
 ## 1. Objective
 
-This benchmark compares two lateral path-planning approaches under the same fixed behavior intent:
+This benchmark compares two Frenet lateral path-planning approaches under the same fixed behavior intent:
 
-- Sampling-based Frenet planner
-- Convex QP Optimization-based Frenet planner
+- Sampling-based planner
+- QP Optimization-based planner
 
 Both planners solve the same high-level maneuver:
 
 1. avoid a static obstacle when present;
-2. remain within the drivable road boundary;
-3. satisfy common physical constraints;
+2. remain within the configured drivable-road contract;
+3. satisfy the same final physical acceptance checks;
 4. return toward the Reference Line by the end of the planning horizon.
 
-The benchmark focuses on the algorithmic trade-off between discrete candidate search and continuous convex optimization rather than Behavior Planning.
+The benchmark focuses on the algorithmic trade-off between discrete candidate search and continuous optimization rather than Behavior Planning.
 
 ---
 
-## 2. Evaluation Methodology
+## 2. Why the Optimization Planner Was Redesigned
 
-Planner tuning was completed before the final evaluation.
+The redesign was triggered by Planning–Control consistency, not by a desire to improve benchmark scores.
 
-The final tuned configurations were frozen at Git commit:
+While preparing planned paths for downstream MPC tracking, the common planner acceptance limit was found to be inconsistent with the vehicle steering model. The earlier benchmark used a permissive curvature limit of approximately:
 
-`b838308a16735ca37515890c1bbb0e8dc54369a6`
+\[
+\kappa_{\max}=1.0\;\mathrm{m}^{-1}
+\]
 
-The final evaluation uses 9 held-out scenarios that were not used for parameter tuning.
+For the configured vehicle:
 
-The comparison protocol was fixed before executing the held-out set:
+- wheelbase: \(L=2.7\,\mathrm{m}\)
+- maximum steering angle: \(\delta_{\max}=0.5\,\mathrm{rad}\)
 
-- success rate: evaluated over all 9 scenarios;
-- path quality: compared only on scenarios where both planners succeed;
-- smoothness: compared only on common-success scenarios;
-- obstacle clearance: compared on common-success obstacle scenarios;
-- runtime: measured over all held-out scenarios.
+The bicycle-model steering geometry gives:
 
-This prevents a planner with more failures from obtaining an artificially favorable mean path-quality score by being evaluated only on easier successful cases.
+\[
+\kappa_{\max}=\frac{\tan\delta_{\max}}{L}
+\approx 0.202334\;\mathrm{m}^{-1}
+\]
+
+Once the benchmark and planner acceptance logic were aligned to this vehicle-derived limit, the original Optimization formulation exposed structural weaknesses in difficult close-obstacle cases.
+
+The important diagnostic observation was that the Sampling Planner could still produce a physically acceptable path under the same vehicle limit in cases where the old Optimization formulation became infeasible or produced excessive curvature. This indicated that the scene itself was not necessarily physically impossible; the Optimization formulation was removing useful feasible solutions.
+
+The original Optimization Planner used:
+
+- an `l`-only optimization vector;
+- finite-difference approximations for `l'`, `l''`, and `l'''`;
+- initial derivative constraints imposed indirectly through early `l` samples;
+- inflated rectangular Frenet obstacle corridors.
+
+Two limitations became important:
+
+1. finite-difference initial-state constraints could over-couple the first several lateral samples and delay useful lateral motion;
+2. a rectangular Frenet corridor could not fully exploit heading-dependent vehicle-footprint clearance.
+
+This motivated a formulation redesign rather than further objective tuning.
 
 ---
 
-## 3. Frozen Planner Configurations
+## 3. Evaluation Methodology
 
-### Sampling Planner
+The project keeps development/tuning scenarios separate from the final evaluation geometry.
 
-The final Sampling search space contains:
+The same nine evaluation scenario definitions are retained across the redesign so pre- and post-redesign behavior can be compared without changing scenario geometry.
+
+Because some evaluation cases were inspected during the diagnosis that motivated the redesign, the current nine-case set is best described as a **frozen evaluation suite** rather than a pristine unseen test set.
+
+The post-redesign workflow was:
+
+1. redesign the Optimization formulation;
+2. validate only on development/tuning and stress scenarios;
+3. freeze production planner logic;
+4. rerun the fixed nine-scenario evaluation suite;
+5. do not retune Sampling after observing its final `1.85 m` narrow-road failure.
+
+Comparison protocol:
+
+- success rate: all 9 evaluation scenarios;
+- path quality: common-success scenarios only;
+- smoothness: common-success scenarios only;
+- clearance: common-success obstacle scenarios only;
+- runtime: all 9 evaluation scenarios.
+
+This prevents a planner with more failures from receiving an artificially favorable path-quality mean by being evaluated only on easier successful cases.
+
+---
+
+## 4. Planner Formulations
+
+### 4.1 Sampling Planner
+
+The frozen Sampling search space contains:
 
 - bypass lateral positions: `[-2.0, -1.5, ..., 1.5, 2.0] m`
 - bypass lengths: `[6, 10, 14, 18, 22] m`
-- strict terminal lateral target: `l = 0`
-- strict terminal slope target: `l' = 0`
+- final lateral target: `l = 0`
+- final slope target: `l' = 0`
 - resolution: `0.5 m`
 
-This produces:
+This gives:
 
 `9 lateral positions × 5 bypass lengths = 45 candidates`
 
-The matched objective weights remain:
+Each candidate is generated from smooth quintic-polynomial segments and then checked using the common final physical acceptance logic.
 
-`(1, 1, 5, 20, 5, 5)`
+The main Sampling limitation is structural:
 
-for:
+> If no member of the discrete candidate family lies inside the feasible region, the planner fails even when a continuous feasible path may exist between sampled candidates.
 
-`l, l', l'', l''', terminal l, terminal l'`.
+### 4.2 Redesigned Optimization Planner
 
-### Optimization Planner
+The redesigned Optimization Planner uses the explicit Frenet state:
 
-The final Optimization configuration uses:
+\[
+x=[l_0,\dots,l_{N-1},\;l'_0,\dots,l'_{N-1},\;l''_0,\dots,l''_{N-1}]^T
+\]
 
-- resolution: `0.5 m`
-- maximum `|l''|` proxy bound: `1.0`
-- obstacle inflation safety margin: `0.05 m`
-- corridor epsilon: `0.01 m`
+with piecewise-constant jerk:
+
+\[
+j_i=\frac{l''_{i+1}-l''_i}{\Delta s}
+\]
+
+and linear spatial dynamics:
+
+\[
+l'_{i+1}=l'_i+\frac{\Delta s}{2}(l''_i+l''_{i+1})
+\]
+
+\[
+l_{i+1}=l_i+\Delta s\,l'_i
++\frac{\Delta s^2}{3}l''_i
++\frac{\Delta s^2}{6}l''_{i+1}
+\]
+
+The explicit state removes the need to reconstruct all derivative states indirectly from an `l`-only vector and allows the initial Frenet state to be constrained directly.
+
+The current Optimization configuration also uses:
+
+- vehicle-derived curvature limit: approximately `0.202334 1/m`;
+- heading-aware nominal obstacle constraints;
+- exact sampled-pose rotated vehicle-footprint clearance;
+- numerical clearance gradients;
+- trust-region sequential convex QP refinement;
+- exact sampled Cartesian curvature revalidation after solving.
+
+Sequential-refinement settings include:
+
+- maximum iterations: `6`
+- clearance numerical buffer: `0.001 m`
+- trust region in `l`: `0.15 m`
+- trust region in `l'`: `0.08`
+- clearance-gradient epsilon: `1e-4`
 - OSQP `eps_abs = eps_rel = 1e-6`
-
-The internal matched objective weights are:
-
-`(0.5, 1, 5, 20, 5, 5)`
-
-The benchmark canonical evaluator remains independent from these planner-internal weights.
 
 ---
 
-## 4. Held-out Success Rate
+## 5. Sequential Convex Obstacle Handling
+
+Exact vehicle-footprint clearance depends nonlinearly on position and heading, so it cannot be inserted directly as a plain linear QP constraint.
+
+The planner evaluates exact sampled-pose clearance as a function of the local Frenet state:
+
+\[
+c(l,l')
+\]
+
+Numerical gradients are estimated around the current path:
+
+\[
+g_l\approx\frac{c(l+\epsilon,l')-c(l-\epsilon,l')}{2\epsilon}
+\]
+
+\[
+g_{l'}\approx\frac{c(l,l'+\epsilon)-c(l,l'-\epsilon)}{2\epsilon}
+\]
+
+The local clearance constraint is then linearized:
+
+\[
+c_0+g_l(l-l_0)+g_{l'}(l'-l'_0)\ge c_{\mathrm{target}}
+\]
+
+A trust region limits each update so the linear approximation remains local. The resulting QP is solved again, reconstructed in Cartesian space, and checked with the exact sampled-pose footprint geometry.
+
+The resulting loop is:
+
+`nominal QP`
+→ `Cartesian reconstruction`
+→ `exact clearance check`
+→ `numerical gradient`
+→ `linearized clearance constraint`
+→ `trust-region QP`
+→ `exact recheck`
+
+This preserves the efficiency and convex structure of the QP subproblems while allowing orientation-dependent obstacle geometry to influence the final solution.
+
+---
+
+## 6. Common Physical Acceptance Contract
+
+Both planners are judged using the same final acceptance definitions.
+
+### Curvature
+
+The returned Cartesian path is checked against the vehicle-derived maximum curvature.
+
+### Obstacle clearance
+
+At every returned sampled pose, the rotated vehicle rectangle is checked against the circular obstacle geometry. The required clearance is strict:
+
+\[
+c > 0.5\,\mathrm{m}
+\]
+
+This is exact for the implemented rectangle-circle geometry **at returned poses**. It is not a continuous inter-knot collision guarantee.
+
+### Road boundary
+
+The production road-boundary validator currently uses a shared Frenet lateral-width contract:
+
+\[
+l-\frac{w}{2}\ge l_{\min},\qquad
+l+\frac{w}{2}\le l_{\max}
+\]
+
+It does not enforce exact rotated-corner containment of the full vehicle footprint.
+
+A separate development diagnostic projects rotated footprint corners to the reference spline and can flag cases where this simplified production road contract is optimistic.
+
+Therefore the accurate project wording is:
+
+> Exact sampled-pose obstacle-clearance and Cartesian-curvature validation, with Frenet-based road-boundary validation.
+
+---
+
+## 7. Development Regression After Redesign
+
+A dedicated development-only Optimization regression script was added:
+
+`scripts/planning/validate_planner_redesign_development.py`
+
+It does not build or execute the final evaluation scenarios.
+
+Current development result:
+
+- required tuning/development scenarios: `7 / 7 PASS`
+- stress scenarios: `19 total`
+- production-validation successes: `16`
+- explicit infeasible/capability-boundary cases: `3`
+- ordinary validation failures: `0`
+
+The stress failures include an extremely early obstacle and very narrow-road cases and are treated as capability-envelope observations rather than triggers for post-hoc parameter tuning.
+
+Near-boundary results are reported diagnostically rather than automatically tuned away.
+
+---
+
+## 8. Final Evaluation Success Rate
+
+The post-redesign frozen evaluation suite contains the same nine scenario geometries as before.
 
 | Planner | Success | Rate |
 | --- | ---: | ---: |
 | Sampling | 8 / 9 | 88.89% |
-| Optimization | 8 / 9 | 88.89% |
+| Optimization | **9 / 9** | **100.00%** |
 
-Both planners failed only:
+Sampling failed only:
 
 `evaluation_road_half_width_1.85`
 
-All other held-out scenarios were successfully solved by both planners, including:
+The recorded Sampling diagnostic for this case reports 45 total candidates with overlapping failure categories:
 
-- lateral recovery;
-- mirrored obstacle positions;
-- early and late obstacle positions;
-- moderately narrow road;
-- alternate curved Reference Line;
-- curved Reference Line with obstacle.
+- curvature failures: `8`
+- clearance failures: `34`
+- road-boundary failures: `30`
 
-The matching held-out success rate suggests that the tuned configurations generalized beyond the development/tuning scenario set rather than improving only the tuning cases.
+These categories overlap and must not be added together.
+
+The Optimization Planner succeeds on the same scenario with continuous decision freedom over the explicit Frenet state.
+
+The result should not be interpreted as proof that continuous optimization always dominates Sampling. It demonstrates that, for this frozen candidate library, the narrow feasible region in the `1.85 m` case is not represented by any of the 45 sampled candidates.
 
 ---
 
-## 5. Common-success Path Quality
+## 9. Common-success Path Quality
 
 The following metrics are averaged over the 8 scenarios successfully solved by both planners.
 
 | Metric | Sampling | Optimization |
 | --- | ---: | ---: |
-| Canonical objective | **0.5125** | 0.6772 |
-| Terminal lateral error [m] | **~0.0000** | 0.00439 |
-| Terminal slope error | **0.00189** | 0.00833 |
-| RMS lateral deviation [m] | 0.6156 | **0.6026** |
-| Cartesian path length [m] | **28.129** | 28.264 |
-| Mean obstacle clearance [m] | 0.6583 | **0.7048** |
-| Worst obstacle clearance [m] | **0.5544** | 0.5118 |
-| Mean max curvature [1/m] | **0.0772** | 0.1812 |
-| RMS curvature [1/m] | **0.0338** | 0.0561 |
-| RMS curvature rate [1/m²] | **0.0263** | 0.0503 |
+| Canonical objective | 0.5125 | **0.2029** |
+| Terminal lateral error [m] | **~0.0000** | 0.000831 |
+| Terminal slope error | **0.00189** | 0.00696 |
+| RMS lateral deviation [m] | 0.6156 | **0.3772** |
+| Cartesian path length [m] | **28.129** | 28.142 |
+| Mean obstacle clearance [m] | **0.6583** | 0.5005 |
+| Worst obstacle clearance [m] | **0.5544** | 0.500096 |
+| Mean max curvature [1/m] | **0.0772** | 0.1152 |
+| RMS curvature [1/m] | **0.0338** | 0.0403 |
+| RMS curvature rate [1/m²] | 0.0263 | **0.0224** |
 
-The two planners therefore show a clear trade-off rather than one planner dominating every metric.
+The redesign changes the trade-off substantially relative to the original Optimization formulation.
 
-Optimization achieves slightly smaller RMS lateral deviation, while Sampling produces smoother paths on average and better terminal convergence.
+Optimization now achieves a much lower common canonical objective and lower RMS lateral deviation while remaining inside the vehicle-derived curvature limit.
 
----
+Sampling still retains advantages in terminal convergence, mean maximum curvature, RMS curvature, and obstacle-clearance margin.
 
-## 6. Smoothness Comparison
-
-Sampling achieved substantially lower curvature-related metrics:
-
-- lower mean maximum absolute curvature;
-- lower RMS curvature;
-- lower RMS curvature rate.
-
-This behavior is consistent with the structure of the Sampling Planner.
-
-Each candidate is formed from smooth quintic polynomial segments, and the selected maneuver must belong to this predefined smooth trajectory family.
-
-The Optimization Planner instead directly optimizes discrete lateral positions under finite-difference penalties and corridor constraints.
-
-Although the QP penalizes `l''` and `l'''`, obstacle-corridor constraints can force relatively aggressive local lateral motion, particularly when the obstacle is close to the ego vehicle.
-
-Therefore, continuous optimization does not automatically imply a smoother Cartesian trajectory.
+The Optimization Planner often operates close to the hard obstacle-clearance boundary, so it would be misleading to describe the lower objective value as a uniformly larger safety margin.
 
 ---
 
-## 7. Safety-margin Comparison
+## 10. Planning–Control Consistency Case Study: 19 m Obstacle
 
-Optimization achieved a larger mean obstacle clearance:
-
-- Sampling: `0.6583 m`
-- Optimization: `0.7048 m`
-
-However, its worst successful clearance was smaller:
-
-- Sampling: `0.5544 m`
-- Optimization: `0.5118 m`
-
-The required minimum clearance is `0.5 m`.
-
-Therefore, it would be misleading to conclude simply that Optimization is "safer."
-
-A more accurate conclusion is:
-
-> The Optimization Planner produced larger clearance on average, but some optimized paths operated closer to the hard clearance boundary.
-
-This is consistent with a constrained optimization formulation that may use available feasible space more aggressively.
-
----
-
-## 8. Early-obstacle Case Study
-
-A particularly informative held-out case is:
+The scenario:
 
 `evaluation_obstacle_longitudinal_19.00`
 
-The obstacle appears relatively close to the initial vehicle position.
+is the clearest example of why the Optimization formulation was redesigned.
 
-### Sampling
+### Original Optimization result
 
-- canonical objective: approximately `0.452`
-- minimum clearance: approximately `0.599 m`
-- maximum curvature: approximately `0.152 1/m`
+Under the earlier permissive benchmark acceptance, the old Optimization path had approximately:
 
-### Optimization
+- maximum Cartesian curvature: `0.654 1/m`
+- minimum obstacle clearance: `1.092 m`
 
-- canonical objective: approximately `2.224`
-- minimum clearance: approximately `1.092 m`
-- maximum curvature: approximately `0.654 1/m`
+The path looked feasible under the old benchmark but exceeded the actual vehicle steering-derived curvature limit by a large margin.
+
+### Sampling under the corrected vehicle limit
+
+Sampling can produce a physically acceptable path with approximately:
+
+- maximum curvature: `0.1522 1/m`
+- minimum clearance: `0.5991 m`
+
+Since:
+
+\[
+0.1522 < 0.202334
+\]
+
+this is strong evidence that the scenario itself is not inherently incompatible with the vehicle curvature limit.
+
+### Redesigned Optimization result
+
+The redesigned Optimization Planner produces approximately:
+
+- canonical objective: `0.1711`
+- maximum curvature: `0.1263 1/m`
+- minimum clearance: `0.50085 m`
+
+So the redesigned planner solves the same close-obstacle maneuver while respecting the vehicle-derived curvature acceptance limit.
 
 ![Early-obstacle comparison](../outputs/final_evaluation/figures/evaluation_obstacle_longitudinal_19_00.png)
 
-The Optimization Planner remains physically feasible, but takes a significantly more aggressive avoidance trajectory.
+The engineering lesson is more important than the numerical score:
 
-This single difficult case also strongly affects its aggregate canonical-objective result.
-
-When this case is excluded only for diagnostic interpretation — not for official benchmark scoring — the mean canonical objective over the remaining common-success cases is approximately:
-
-- Sampling: `0.521`
-- Optimization: `0.456`
-
-This indicates that the aggregate Optimization objective is not uniformly worse across ordinary cases. Instead, its mean is strongly influenced by this near-field obstacle case.
+> Connecting Planning to Control exposed a physically inconsistent benchmark assumption. Correcting that assumption revealed a formulation problem that objective tuning alone could not solve.
 
 ---
 
-## 9. Convex Corridor Approximation Trade-off
+## 11. Narrow-road Case Study: 1.85 m Half-width
 
-The Optimization Planner does not optimize collision avoidance directly against the original circular obstacle geometry.
-
-Instead, the pipeline performs:
-
-`obstacle geometry`
-→ `Frenet projection`
-→ `inflation`
-→ `left/right convex lateral corridors`
-→ `QP optimization`
-
-This transformation makes the optimization problem convex and computationally efficient.
-
-However, it also introduces an approximation.
-
-For difficult near-field obstacles, the lateral corridor may impose a relatively rigid avoidance boundary over part of the horizon. The optimizer then minimizes its quadratic objective inside that feasible convex region, but the resulting maneuver can become more aggressive than a smooth sampled polynomial candidate.
-
-This is the principal engineering trade-off observed in the final evaluation:
-
-> Convexification enables extremely fast continuous optimization, but the quality of the final path is influenced by the geometry of the corridor approximation.
-
----
-
-## 10. Sampling-density Trade-off
-
-The tuned Sampling Planner evaluates 45 candidates.
-
-Increasing sampling density can improve the probability of discovering a better discrete approximation to the desired trajectory, but candidate generation, Cartesian conversion, physical validation, and objective evaluation all scale with the number of candidates.
-
-The tuning study therefore favored a moderate search space rather than maximum sampling density.
-
-The final design uses:
-
-- relatively broad lateral coverage;
-- multiple bypass-length choices;
-- strict terminal targets;
-- no unnecessary terminal-state expansion.
-
-This provided the desired development-set coverage without the much larger runtime associated with denser candidate sets.
-
-The main limitation remains fundamental to sampling:
-
-> If no candidate in the discrete trajectory family passes the physical constraints, the planner fails even if another continuous feasible trajectory may exist between sampled candidates.
-
----
-
-## 11. Hard Narrow-road Failure
-
-Both planners failed:
+The original benchmark already contained:
 
 `evaluation_road_half_width_1.85`
 
-### Sampling failure
+Before the redesign, both planners failed this scenario.
 
-No physically feasible candidate remained from the 45 sampled trajectories.
+After the redesign:
 
-The recorded failure counts were:
+- Sampling: FAIL
+- Optimization: PASS
 
-- curvature failures: `0`
-- clearance failures: `34`
-- road-boundary failures: `30`
+This is useful because it shows a second benefit of the explicit-state continuous formulation beyond fixing the close-obstacle curvature problem.
 
-Candidates can violate more than one constraint, so these counts are not mutually exclusive.
+Sampling searches a finite candidate library. The Optimization Planner can continuously adjust `l`, `l'`, and `l''` and therefore can occupy a narrow feasible region that lies between the frozen Sampling candidates.
 
-### Optimization failure
-
-The two obstacle-avoidance corridor branches failed differently:
-
-- one corridor was geometrically infeasible;
-- one corridor produced a solution that failed final exact physical validation.
-
-This case is therefore useful because it exposes different failure mechanisms while producing the same planner-level outcome.
-
-The result should not be interpreted as proof that no physically feasible trajectory exists in continuous space.
-
-A more precise conclusion is that the scenario remains outside the feasible/searchable region of the current planner formulations and constraints.
+The Sampling candidate set is intentionally not expanded after observing this final result, because doing so would amount to tuning against the evaluation suite.
 
 ---
 
 ## 12. Computation-time Comparison
 
-Runtime over all 9 held-out scenarios:
+Runtime over all 9 post-redesign evaluation scenarios:
 
 | Planner | Mean [ms] | Median [ms] | Min [ms] | Max [ms] |
 | --- | ---: | ---: | ---: | ---: |
-| Sampling | 184.209 | 182.798 | 180.424 | 188.866 |
-| Optimization | **7.602** | **7.220** | **6.413** | **11.087** |
+| Sampling | 190.665 | 188.397 | 181.477 | 220.490 |
+| Optimization | **46.279** | **53.753** | **12.502** | **62.700** |
 
-The Optimization Planner is approximately:
+Optimization is approximately `4.1×` faster on mean runtime in the current benchmark.
 
-**24.2× faster**
+This is slower than the original simple convex-corridor QP because the redesigned planner can solve several sequential QP subproblems and repeatedly evaluate exact footprint geometry.
 
-on mean held-out runtime.
+The runtime result therefore reflects an explicit engineering trade-off:
 
-The reason is structural.
-
-Sampling must:
-
-1. generate many candidate trajectories;
-2. convert every trajectory to Cartesian space;
-3. run physical feasibility checks;
-4. score feasible candidates;
-5. select the best candidate.
-
-Optimization instead solves a small number of structured convex QPs after constructing lateral corridors.
-
-Runtime is therefore the clearest advantage of the Optimization approach in this benchmark.
+> The redesign spends additional computation on physically meaningful state and clearance handling, while remaining substantially faster than evaluating the full Sampling candidate library.
 
 ---
 
 ## 13. Representative Curved Scenario
 
-The held-out suite also uses an alternate curved Reference Line that differs from the development curved scenario.
+The frozen evaluation suite also includes an alternate curved Reference Line and a curved-reference obstacle case.
 
-Both planners successfully solved both:
+Both planners successfully solve:
 
-- curved nominal;
-- curved obstacle.
+- `evaluation_curved_nominal`
+- `evaluation_curved_obstacle`
 
 ![Curved obstacle comparison](../outputs/final_evaluation/figures/evaluation_curved_obstacle.png)
 
-This provides additional evidence that both planners generalize beyond the exact Reference Line geometry used during tuning.
+These scenarios verify that the benchmark is not limited to a straight reference-line geometry.
 
 ---
 
@@ -340,52 +424,62 @@ This provides additional evidence that both planners generalize beyond the exact
 
 Strengths:
 
-- smooth trajectory family;
-- low curvature and curvature-rate metrics;
-- nearly exact terminal return;
-- intuitive candidate-based behavior;
-- robust and explainable path selection.
+- simple and interpretable candidate-based behavior;
+- smooth quintic trajectory family;
+- low mean curvature metrics;
+- strong terminal return behavior;
+- generous obstacle-clearance margin in successful evaluation cases.
 
 Limitations:
 
-- high computation time;
-- runtime scales with candidate count;
-- solution quality depends on discrete sampling density;
-- can miss feasible trajectories outside the candidate family.
+- high computation cost from generating and validating many candidates;
+- runtime grows with candidate count;
+- solution coverage depends on the discrete candidate library;
+- can miss narrow feasible regions between sampled candidates.
 
-### Optimization Planner
+### Redesigned Optimization Planner
 
 Strengths:
 
-- approximately 24× faster in the held-out benchmark;
-- continuous lateral optimization;
-- slightly smaller average lateral deviation;
-- competitive canonical objective in most non-outlier scenarios;
-- efficient handling of the matched quadratic objective.
+- explicit physical Frenet state `[l, l', l'']`;
+- piecewise-jerk dynamics;
+- direct initial-state constraints;
+- vehicle-derived curvature handling;
+- heading-aware obstacle treatment;
+- exact sampled-pose footprint clearance with sequential convex refinement;
+- continuous decision freedom;
+- 9/9 success on the current frozen evaluation suite;
+- approximately 4.1× lower mean runtime than Sampling.
 
 Limitations:
 
-- obstacle avoidance depends on convex corridor approximation;
-- near-field obstacles can induce aggressive lateral motion;
-- higher curvature and curvature-rate metrics in the current formulation;
-- narrow geometry can make corridor branches infeasible;
-- optimized solutions still require final physical validation.
+- sequential convex refinement increases runtime relative to the old simple QP;
+- exact obstacle clearance is sampled-pose rather than continuous inter-knot checking;
+- production road-boundary validation remains Frenet-width based rather than exact rotated-footprint containment;
+- the internal QP still uses a local curvature proxy and relies on exact Cartesian post-validation;
+- optimized paths can operate very close to the configured clearance boundary.
 
 ---
 
-## 15. Conclusion
+## 15. Main Engineering Takeaway
 
-Neither planner universally dominates the other.
+The most important result is not simply `8/9` versus `9/9`.
 
-The final held-out benchmark produced the same `8/9` success rate for both approaches but exposed different engineering characteristics.
+The project demonstrates the following engineering process:
 
-Sampling trades computation time for a structured smooth candidate family.
+1. implement two planning approaches;
+2. build a common benchmark and physical validator;
+3. connect Planning assumptions to downstream Control/vehicle capability;
+4. detect an unrealistic curvature acceptance limit;
+5. use cross-planner evidence to distinguish scene infeasibility from formulation failure;
+6. identify state-representation and obstacle-geometry limitations;
+7. redesign the Optimization formulation rather than continuing weight tuning;
+8. validate on development/stress scenarios;
+9. rerun a frozen evaluation suite without retuning Sampling on its observed final failure.
 
-Optimization trades geometric approximation for computational efficiency and continuous decision variables.
+The central lesson is:
 
-The most important result is therefore not that one planner is universally better, but that the benchmark reveals where each formulation is strong and where its approximation becomes limiting.
-
-This comparison provides the foundation for the next project stage, where planned paths will be evaluated together with a common curvature-aware controller in closed-loop Planning & Control experiments.
+> A mathematically feasible planner output is not automatically a physically trackable vehicle path. Planning constraints must remain consistent with downstream Control and vehicle capability.
 
 ---
 
@@ -395,22 +489,34 @@ Final evaluation runner:
 
 `scripts/planning/run_final_planner_evaluation.py`
 
-Raw metrics:
+Development-only redesign regression:
+
+`scripts/planning/validate_planner_redesign_development.py`
+
+Raw final metrics:
 
 `outputs/final_evaluation/final_planner_evaluation.csv`
 
-Machine-readable summary:
+Machine-readable final summary:
 
 `outputs/final_evaluation/final_planner_evaluation_summary.json`
+
+Evaluation source provenance:
+
+`outputs/final_evaluation/source_provenance.json`
 
 Scenario figures:
 
 `outputs/final_evaluation/figures/`
 
-Held-out scenario definitions:
+Archived pre-rerun figures:
+
+`outputs/final_evaluation/previous_figures_2e0bc59/`
+
+Evaluation scenario definitions:
 
 `src/benchmark/evaluation_scenario_suite.py`
 
-Frozen planner configuration:
+Planner configuration:
 
 `src/config/planning.py`
