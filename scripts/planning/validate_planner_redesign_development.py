@@ -331,7 +331,7 @@ def main():
         "total_stress_scenario_count": len(stress_rows),
         "planner_success_count": sum(row["adapter_success"] for row in stress_rows),
         "production_validation_success_count": len(stress_successes),
-        "infeasible_failure_count": len(stress_rows) - len(stress_successes),
+        "non_success_count": len(stress_rows) - len(stress_successes),
         "infeasible_count": sum(row["status"] == "INFEASIBLE" for row in stress_rows),
         "failure_count": sum(row["status"] == "FAILURE" for row in stress_rows),
         "minimum_successful_obstacle_clearance_margin_m": min(margins) if margins else None,
@@ -339,7 +339,7 @@ def main():
         "near_boundary_cases": [{"name": row["name"], "flags": row["near_boundary"]}
                                 for row in stress_rows if row["near_boundary"]],
         "additional_rotated_footprint_road_warnings": [
-            row["additional_geometric_warning"] for row in rows
+            row["additional_geometric_warning"] for row in stress_rows
             if "additional_geometric_warning" in row
         ],
     }
