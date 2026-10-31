@@ -1,568 +1,523 @@
 # VLM-Guided Hybrid Autonomous Driving Planner — 开发路线
 
 ## Phase 0 — 项目初始化
+
 - [x] 创建 GitHub 仓库
-- [x] 配置 Ubuntu / Python 开发环境
-- [x] 配置 Git 和 SSH
+- [x] 配置 Python 开发环境
+- [x] 配置 Git / SSH
 - [x] 创建基础项目目录
 
+---
 
 ## Phase 1 — Planning & Control 基线系统
+
 ### 1. 通用数据结构
-定义 Planning & Control 各模块之间统一使用的数据接口。
-包括：
-- [x] VehicleState
-- [x] ScenarioState
-- [x] BehaviorType
-- [x] BehaviorCommand
-- [x] TrajectoryPoint
+
+建立 Planning & Control 模块之间统一的数据接口。
+
+- [x] `VehicleState`
+- [x] `ScenarioState`
+- [x] `BehaviorType`
+- [x] `BehaviorCommand`
+- [x] `TrajectoryPoint`
+- [x] `ControlCommand`
 
 ### 2. 基础场景建模
-使用 VehicleState 和 ScenarioState 构造可重复运行的基础驾驶测试场景。
-包括：
+
 - [x] 正常直行
 - [x] 前车减速
 - [x] 行人横穿
 
-### 3. 规则行为决策器
-根据 VehicleState 和 ScenarioState 使用确定性规则生成 BehaviorCommand。
-第一版支持：
-- [x] KEEP_LANE
-- [x] SLOW_DOWN
-- [x] STOP
+### 3. Rule-based Behavior Planner
 
-### 4. 简单参考轨迹生成器
-根据 VehicleState 和 BehaviorCommand，沿直线路径生成由多个 TrajectoryPoint 组成的参考轨迹和目标速度曲线。
+- [x] `KEEP_LANE`
+- [x] `SLOW_DOWN`
+- [x] `STOP`
+
+### 4. 基础参考轨迹生成
+
 - [x] 固定 `dt` 的直线参考轨迹
 - [x] KEEP_LANE / SLOW_DOWN / STOP 验证
 - [x] 加速度 / 减速度约束
-- [x] 更合理的位置积分
+- [x] 位置积分
 - [x] 停车距离检查
-- [x] 三种行为统一验证
+- [x] 参考速度与参考加速度输出
 
-### 5. 运动学自行车模型
-使用前轮转角和纵向加速度作为输入，根据运动学自行车模型更新车辆的位置、航向角和速度。
-- [x] 定义 ControlCommand
-- [x] 理解运动学自行车模型的状态与控制输入
-- [x] 推导 x / y / yaw / speed 状态方程
-- [x] 使用固定 `dt` 离散化车辆模型
-- [x] 实现单步车辆状态更新
-- [x] 验证直线匀速运动
-- [x] 验证纵向加速 / 减速
-- [x] 验证固定转角下的转弯运动
+### 5. Kinematic Bicycle Model
 
-### 6. 纵向 PID 控制
-根据参考速度和当前车辆速度计算纵向加速度指令，使车辆跟踪目标速度。
-包括：
-- [x] 理解纵向速度控制闭环
-- [x] 定义速度误差
-- [x] 理解 P / I / D 三项作用
-- [x] 实现 PIDController
-- [x] 加速度输出限幅
-- [x] 实现积分项防饱和
-- [x] 与运动学自行车模型闭环连接
-- [x] 验证加速跟踪
-- [x] 验证减速跟踪
-- [x] 验证目标速度变化
-- [x] 比较不同 Kp / 时间常数的响应
-- [x] 讨论 PI / PID 是否有必要
+- [x] 推导 `x / y / yaw / speed` 状态方程
+- [x] 前轮转角 + 纵向加速度输入
+- [x] 固定 `dt` 离散化
+- [x] 直线匀速验证
+- [x] 加速 / 减速验证
+- [x] 固定转角转弯验证
 
-### 7. 横向 MPC 控制
-根据 VehicleState 和参考轨迹建立预测模型和优化问题，计算前轮转角，实现横向轨迹跟踪。
-- [x] 理解横向控制闭环
-- [x] 定义横向误差和航向误差
-- [x] 推导横向误差状态方程
-- [x] 线性化运动学自行车模型
-- [x] 离散化并写成状态空间
-- [x] 构造 MPC 多步预测模型
-- [x] 定义状态误差和转向代价
-- [x] 加入转角约束
-- [x] 转换为 QP
-- [x] 实现 MPCController
-- [x] 与运动学自行车模型闭环连接
-- [x] 加入转角变化量约束（扩展）
-- [x] 再接回 MPCController
-- [x] 验证直线轨迹跟踪
-- [x] 验证存在初始横向偏差
-- [x] 验证存在初始航向偏差
+### 6. Longitudinal PID
+
+- [x] 速度误差闭环
+- [x] PID 控制器
+- [x] 加速度限幅
+- [x] anti-windup
+- [x] 与车辆模型闭环
+- [x] 加入 reference-acceleration feedforward
+- [x] 加速 / 减速 / 目标变化验证
+
+### 7. Lateral MPC
+
+- [x] 定义 lateral / heading error
+- [x] 推导线性化运动学自行车误差模型
+- [x] 离散状态空间模型
+- [x] 多步预测模型
+- [x] Q / R quadratic cost
+- [x] steering-angle constraint
+- [x] steering-rate constraint
+- [x] QP formulation
+- [x] OSQP solve
+- [x] receding-horizon first-control application
+- [x] 初始 lateral-error recovery
+- [x] 初始 heading-error recovery
+- [x] baseline MPC calibration
 
 ### 8. Planning & Control 闭环仿真
-将参考轨迹、纵向 PID、横向 MPC 和车辆模型连接成完整 Planning & Control 闭环。
-- [x] 根据当前时间获取参考轨迹点
-- [x] 计算纵向速度误差
-- [x] 计算横向误差和航向误差
-- [x] PID 生成加速度指令
-- [x] MPC 生成转向指令
-- [x] 合成 ControlCommand
-- [x] 更新车辆状态
-- [x] 完整闭环循环
-- [x] 验证 KEEP_LANE
-- [x] 验证 SLOW_DOWN
-- [x] 加入纵向参考加速度 feedforward
-- [x] 验证 STOP
+
+- [x] Reference Trajectory → PID / MPC
+- [x] PID → acceleration
+- [x] MPC → steering
+- [x] ControlCommand → vehicle model
+- [x] VehicleState feedback
+- [x] KEEP_LANE closed loop
+- [x] SLOW_DOWN closed loop
+- [x] STOP closed loop
 
 ### 9. 基础评价与可视化
-对 Planning & Control 闭环的跟踪性能和控制输出进行定量评价。
-- [x] 记录完整闭环仿真数据
-- [x] 绘制统一 P&C summary
-- [x] 计算速度 MAE / RMSE / max error
-- [x] 计算横向 MAE / RMSE / max error
-- [x] 计算航向 RMSE / max error
-- [x] 评价 steering rate / smoothness
-- [x] 汇总 KEEP_LANE / SLOW_DOWN / STOP 场景结果
 
-### MPC Baseline Calibration
-得到一套稳定、合理、可重复的 baseline MPC 参数。
-- [x] 记录当前 MPC 参数
-- [x] 建立 baseline evaluation cases
-- [x] 检查 lateral tracking error
-- [x] 检查 heading error
-- [x] 检查 steering smoothness
-- [x] 检查 steering-rate
-- [x] 检查 constraint violation
-- [x] 检查 prediction horizon
-- [x] 检查不同速度下稳定性
-- [x] 冻结 baseline MPC config
+- [x] speed MAE / RMSE / max error
+- [x] lateral MAE / RMSE / max error
+- [x] heading RMSE / max error
+- [x] steering-rate / smoothness
+- [x] 统一 P&C summary figure
 
-## Phase 2 — 传统轨迹规划
+---
+
+## Phase 2 — Classical Trajectory Planning
+
 ### 10. Reference Line
-建立统一、平滑的道路参考线，为 Frenet 坐标和 Sampling Planner 提供稳定几何信息。
-已完成离散版本：
-- [x] 定义 ReferencePoint 数据结构
-- [x] 离散二维点表示 Reference Line
-- [x] 计算累计弧长 s
-- [x] 计算 yaw
-- [x] 计算 curvature
-- [x] 按 s 查询 / 线性插值
-- [x] 验证直线和圆弧 Reference Line
-升级为成熟实现：
-- [x] 使用 cubic spline 建立 x(s) / y(s)
-- [x] 由 spline 导数计算 yaw
-- [x] 由 spline 导数计算 curvature
-- [x] 计算 curvature derivative κ'
-- [x] ReferencePoint 增加 curvature_derivative
-- [x] 统一 ReferenceLine query(s)
-- [x] 验证 straight / circular / smooth curved path
 
-### 11. Cartesian ↔ Frenet / SL 坐标转换
-建立基于同一 Smooth Reference Line 的 XY ↔ SL 坐标转换。
-已完成基础版本：
-- [x] 理解 XY ↔ SL 几何意义
-- [x] 定义 FrenetPoint
-- [x] 实现 polyline XY → SL
-- [x] 实现 polyline SL → XY
-- [x] 验证 XY → SL → XY
-升级：
-- [x] 保存 raw waypoints，用于 coarse localization
-- [x] XY → SL 改为 raw-waypoint coarse localization + spline ternary-search projection
-- [x] SL → XY 改为 spline Reference Line
-- [x] 使用统一 smooth ReferenceLine position / yaw 几何信息
-- [x] 验证 straight / endpoint / circular / varying-curvature round-trip
+建立统一 smooth Reference Line。
+
+- [x] 离散 Reference Point
+- [x] cumulative arc length `s`
+- [x] yaw
+- [x] curvature
+- [x] cubic spline `x(s) / y(s)`
+- [x] curvature derivative `κ'`
+- [x] `ReferenceLine.query(s)`
+- [x] straight / circular / varying-curvature validation
+
+### 11. Cartesian ↔ Frenet / SL
+
+- [x] XY → SL
+- [x] SL → XY
+- [x] raw-waypoint coarse localization
+- [x] spline projection
+- [x] smooth Reference Line geometry
+- [x] straight / endpoint / circular / varying-curvature round-trip validation
 
 ### 12. Sampling-based Planner
-基于 Frenet Sampling 生成多条空间 Candidate Path，
-参考 Autoware Path Sampler / Apollo Frenet / Werling 方法。
-#### Frenet Geometry
-- [x] 理解 Frenet trajectory representation
-- [x] 定义 s / l / l' / l''
-- [x] 定义 FrenetTrajectoryPoint / FrenetTrajectory
-- [x] 推导 Candidate position
-- [x] 推导 Candidate yaw
-- [x] 理解 1 - κ_r l
-- [x] 推导 Candidate curvature
-- [x] 理解 κ_r'
-- [x] 实现 Apollo-style Frenet → Cartesian geometry
-- [x] 定义 Cartesian PathPoint
-- [x] 输出 x / y / yaw / curvature / s
 
-#### Lateral Sampling
-第一版只做空间 Path Sampling，不进行 longitudinal trajectory optimization。
-- [x] 定义 target lateral positions
-- [x] 定义 target path lengths
-- [x] 定义 sampling resolution
-- [x] 使用 quintic polynomial 连接 initial / target state
-- [x] 生成多条 Frenet Candidate Paths
-- [x] 转换全部 Candidate 到 Cartesian
-- [x] 根据 ego state 计算初始 l / l' / l''
+基于 Frenet Sampling 生成空间 Candidate Paths，并使用统一物理约束筛选。
 
-#### Hard Constraints
-参考 Autoware hard constraints。
-- [x] 定义 VehicleParams / ego footprint
-- [x] 定义 StaticObstacle geometry
-- [x] curvature limit
-- [x] vehicle footprint collision checking
-- [x] minimum obstacle distance
-- [x] drivable-area / road-boundary checking
-- [x] 剔除 infeasible Candidates
+#### Frenet geometry
 
-#### Soft Cost
-第一版固定使用：
-- [x] lateral deviation cost
-- [x] curvature cost
-- [x] path length / progress cost
-- [x] weighted total cost
-- [x] 选择 minimum-cost Candidate
+- [x] `s / l / l' / l''`
+- [x] `FrenetTrajectoryPoint / FrenetTrajectory`
+- [x] Candidate yaw
+- [x] `1 - κ_r l` geometry
+- [x] Candidate curvature
+- [x] `κ_r'`
+- [x] Frenet → Cartesian geometry
+- [x] `PathPoint`
 
-#### Validation & Benchmark
-- [x] straight nominal driving
+#### Candidate generation
+
+- [x] target lateral positions
+- [x] target maneuver lengths
+- [x] quintic polynomial
+- [x] ego initial `l / l' / l''`
+- [x] bypass-and-return candidate family
+- [x] common planning horizon
+- [x] terminal state sampling
+
+#### Physical constraints
+
+- [x] vehicle footprint
+- [x] static circular obstacle
+- [x] exact sampled-pose obstacle clearance
+- [x] exact sampled Cartesian curvature check
+- [x] Frenet-based road-boundary pruning
+- [x] infeasible candidate removal
+
+#### Objective / selection
+
+- [x] lateral deviation
+- [x] `l' / l'' / l'''` smoothness terms
+- [x] terminal `l / l'`
+- [x] canonical matched objective
+- [x] minimum-cost feasible candidate selection
+
+#### Validation
+
+- [x] straight nominal
 - [x] curved Reference Line
-- [x] lateral maneuver
+- [x] lateral recovery
 - [x] static obstacle avoidance
-- [x] 可视化全部 Candidates 和 Best Path
-- [x] planning computation time
-- [x] minimum obstacle clearance
+- [x] candidate visualization
+- [x] planning time
+- [x] minimum clearance
 - [x] maximum curvature
 - [x] path length
 - [x] planning success rate
 
-### 13. Optimization-based Path Planner
-使用 Frenet corridor + convex QP 直接优化离散 lateral path，
-与 Sampling Planner 形成明确算法对照。
+---
 
-#### QP State & Objective
-- [x] 定义离散优化变量 `l`
-- [x] 建立 `l'` finite-difference matrix
-- [x] 建立 `l''` finite-difference matrix
-- [x] 建立 `l'''` finite-difference matrix
-- [x] 定义 lateral reference / deviation cost
-- [x] 定义 `l' / l'' / l'''` smoothness cost
-- [x] 将 quadratic cost 转换为标准 QP `P / q`
+### 13. Optimization-based Path Planner — Initial Version
 
-#### QP Constraints & Nominal Solve
-- [x] 将 lateral bounds 写成 inequality constraints
-- [x] 加入 initial `l` equality constraint
-- [x] 加入 initial `l'` equality constraint
-- [x] 加入 initial `l''` equality constraint
-- [x] 构造 OSQP 所需 `A / lower / upper`
-- [x] 使用 OSQP 求解单个 convex QP
-- [x] 处理 solver failure / infeasible status
+第一版 Optimization Planner 使用 `l`-only convex QP + finite differences + Frenet obstacle corridors。
 
-#### Path Reconstruction & Output
-- [x] 从 optimized `l` 恢复 `l' / l''`
-- [x] 输出统一 `FrenetTrajectory`
-- [x] Frenet → Cartesian
-- [x] 输出统一 `PathPoint`
-- [x] 封装 nominal Optimization Planner pipeline
+这一阶段保留在路线图中作为后续 redesign 的历史基线。
 
-#### Lateral Corridor
-- [x] 沿 Reference Line 离散 planning horizon
-- [x] 根据 road boundary + vehicle half-width 建立基础 lateral bounds
-- [x] 将 StaticObstacle 从 Cartesian 投影到 Frenet / SL
-- [x] 考虑 ego footprint + minimum clearance 对 obstacle 进行 inflation
-- [x] 构造 obstacle 左绕 / 右绕两套 lateral corridor
-- [x] 检查 corridor feasibility
+#### Initial QP state / objective
 
-#### Multi-corridor Optimization
-- [x] 对每个 feasible corridor 分别构造并求解 QP
-- [x] 丢弃 infeasible / solver-failure corridor
-- [x] 从 feasible solutions 中选择 minimum-objective path
+- [x] optimization variable `l`
+- [x] `D1` finite-difference approximation of `l'`
+- [x] `D2` finite-difference approximation of `l''`
+- [x] `D3` finite-difference approximation of `l'''`
+- [x] quadratic lateral / smoothness objective
+- [x] terminal objective
+- [x] OSQP `P / q`
 
-#### Validation
-- [x] QP difference matrices
-- [x] QP objective `P / q`
-- [x] QP constraints `A / lower / upper`
-- [x] OSQP nominal solve
-- [x] Frenet trajectory reconstruction
-- [x] straight nominal Cartesian Path
+#### Initial constraints
+
+- [x] road lateral bounds
+- [x] initial `l` constraint
+- [x] initial `l'` finite-difference constraint
+- [x] initial `l''` finite-difference constraint
+- [x] `D2` curvature-related proxy bound
+- [x] OSQP `A / lower / upper`
+
+#### Initial obstacle treatment
+
+- [x] obstacle Frenet projection
+- [x] obstacle inflation
+- [x] negative / positive lateral corridor branches
+- [x] corridor feasibility check
+- [x] multi-corridor QP solve
+- [x] final physical post-validation
+
+#### Initial validation
+
+- [x] nominal solve
 - [x] curved Reference Line
 - [x] lateral maneuver
 - [x] static obstacle avoidance
-- [x] corridor / optimized path visualization
+- [x] corridor / optimized-path visualization
 
-### 14. Sampling vs Optimization Planner Benchmark
+---
 
-在固定 Behavior intent 下，对 Sampling-based Planner 和
-Optimization-based Planner 进行公平、可重复的统一 Benchmark。
+### 14. Sampling vs Optimization Unified Benchmark
 
-Benchmark 固定 maneuver intent：
-- 绕开静态障碍物
-- 最终回到 Reference Line
-- 不比较 Behavior Planner 本身
-- 重点比较离散 Sampling 与连续 Optimization 的差异
-
-#### 14.0 Freeze Pre-Benchmark Baseline
-- [x] 完成 Sampling Planner 基础实现
-- [x] 完成两段式 bypass-and-return Sampling
-- [x] 完成 Sampling hard-constraint validation
-- [x] 完成 Sampling visualization
-- [x] 完成 Optimization Planner
-- [x] 完成 obstacle corridor branching
-- [x] 完成 multi-corridor QP solve
-- [x] 完成 Optimization validation / visualization
-- [x] 冻结 pre-benchmark baseline commits
+建立相同 Behavior intent 下的公平 planner comparison。
 
 #### 14.1 Centralized Configuration
-将 Planning / Benchmark 使用的可配置参数集中管理，
-避免 planner / validation / benchmark scripts 中散落 hardcoded 参数。
 
-- [x] 建立 `src/config/` package
-- [x] 集中 Vehicle geometry 参数
-- [x] 集中 Road / planning constraint 参数
-- [x] 集中 Sampling Planner 参数
-- [x] 集中 Optimization Planner 参数
-- [x] 集中 corridor / obstacle inflation 参数
-- [x] 集中 OSQP / numerical tolerance 参数
-- [x] 集中 Benchmark runtime 参数
-- [x] Planner source 不再包含 tuning parameter hardcode
-- [x] Benchmark / visualization 统一引用 config
-- [x] 保留 validation oracle / assertion tolerance 作为 test-local 常量
-- [x] 重新运行全部 Sampling / Optimization regression tests
-- [x] 确认 config refactor 不改变原有数值结果
+- [x] `src/config/` centralized configuration
+- [x] vehicle geometry
+- [x] road / planning constraints
+- [x] Sampling parameters
+- [x] Optimization parameters
+- [x] OSQP / numerical tolerance
+- [x] benchmark runtime settings
 
-#### 14.2 Matched Planner Formulation
-让两个 Planner 尽量解决相同的几何优化问题，
-只保留 Sampling 与 continuous optimization 的核心求解方式差异。
+#### 14.2 Matched Objective
 
-共同 soft objective：
+统一 geometric objective：
 
-`J = w_l J_l
-   + w_dl J_dl
-   + w_d2l J_d2l
-   + w_d3l J_d3l
-   + w_terminal_l J_terminal_l
-   + w_terminal_dl J_terminal_dl`
+`J = w_l J_l + w_dl J_dl + w_d2l J_d2l + w_d3l J_d3l + w_terminal_l J_terminal_l + w_terminal_dl J_terminal_dl`
 
-- [x] `l`：mean squared lateral deviation
-- [x] `l'`：mean squared lateral slope / heading-related cost
-- [x] `l''`：mean squared curvature-related cost
-- [x] `l'''`：mean squared curvature-change / smoothness cost
-- [x] terminal `l`：planning horizon 末端 lateral error
-- [x] terminal `l'`：planning horizon 末端 heading / slope error
-- [x] 使用 mean-square normalization，降低 discretization 点数变化对 cost scale 的影响
-- [x] matched benchmark 中移除 Sampling-only path-length/progress cost
+- [x] `l`
+- [x] `l'`
+- [x] `l''`
+- [x] `l'''`
+- [x] terminal `l`
+- [x] terminal `l'`
+- [x] mean-square normalization
+- [x] planner-independent canonical objective evaluator
 
-#### 14.3 Generalize Returning Sampling
-使 terminal objective 在 Sampling 中真正参与 candidate selection，
-而不是所有 candidate 固定 terminal state。
+#### 14.3 Shared physical acceptance
 
-- [x] terminal `l` 支持多个 sampled target
-- [x] terminal `l'` 支持多个 sampled target
-- [x] 保留 terminal `l''` 的合理边界条件
-- [x] 保证两段 quintic junction 的 `l / l' / l''` 连续
-- [x] 保证所有 candidate 使用相同 planning horizon
-- [x] 验证 candidate 数量及 terminal-state coverage
-- [x] 验证原 bypass-and-return behavior 仍可生成
+两种 Planner 使用同一最终 acceptance contract：
 
-#### 14.4 Matched Optimization Objective
-将相同六项 geometric objective 转换为 Optimization Planner 的 QP。
+- [x] exact sampled Cartesian curvature check
+- [x] exact sampled-pose footprint-to-obstacle clearance
+- [x] Frenet-based road-boundary validation
+- [x] initial-state consistency
 
-- [x] `l` cost → identity quadratic term
-- [x] `l'` cost → `D1^T D1`
-- [x] `l''` cost → `D2^T D2`
-- [x] `l'''` cost → `D3^T D3`
-- [x] terminal `l` cost → terminal quadratic term
-- [x] terminal `l'` cost → terminal D1 quadratic term
-- [x] 构造统一 `P / q`
-- [x] 验证 Sampling / Optimization 各 cost 项物理意义一致
-- [x] 验证 QP 保持 convex / PSD
+> 注意：production road-boundary check 不是 rotated full-footprint exact containment。它使用 Frenet centerline ± half-width contract。后续额外加入 rotated-corner diagnostic，但该 diagnostic 不改变 production PASS / FAIL。
 
-#### 14.5 Matched Hard Constraints
-两种 Planner 使用相同的最终物理可行性标准。
+#### 14.4 Unified benchmark interface
 
-共同 physical requirements：
-- road boundary
-- minimum obstacle clearance
-- maximum Cartesian curvature
-- initial-state consistency
-
-Sampling：
-- [x] 保留 exact Cartesian curvature pruning
-- [x] 保留 exact vehicle-footprint obstacle clearance
-- [x] 保留 road-boundary pruning
-
-Optimization：
-- [x] 保留 road / obstacle convex corridor
-- [x] 加入 `D2` curvature-proxy hard bound
-- [x] 保持 QP convex
-- [x] QP 求解后转换为 Cartesian
-- [x] 使用与 Sampling 相同的 exact physical validator
-
-统一最终 validation：
-- [x] exact road-boundary check
-- [x] exact footprint-to-obstacle clearance
-- [x] exact Cartesian max curvature
-- [x] 任一物理约束失败则 planner result 判定为 failure
-
-#### 14.6 Unified Benchmark Interface
-建立与 planner 类型无关的 Benchmark 输出接口。
-
-- [x] 定义统一 `PlannerBenchmarkResult`
-- [x] planner name
+- [x] `PlannerBenchmarkResult`
 - [x] success / failure
 - [x] Frenet trajectory
 - [x] Cartesian path
 - [x] planning time
 - [x] failure reason
-- [x] canonical matched objective value
+- [x] canonical matched objective
 - [x] Sampling adapter
 - [x] Optimization adapter
 
-#### 14.7 Common Benchmark Metrics
-禁止直接比较两个 Planner 各自的 native / internal objective value。
-
-两种 Planner 使用相同的 canonical matched objective，
-因此其 objective value 可以作为统一 comparison metric；
-其余指标统一使用 planner-independent physical metrics。
+#### 14.5 Common metrics
 
 - [x] planning success
-- [x] canonical matched objective value
+- [x] canonical objective
 - [x] terminal lateral error
 - [x] terminal slope error
 - [x] RMS lateral deviation
 - [x] Cartesian path length
 - [x] minimum exact obstacle clearance
 - [x] maximum absolute Cartesian curvature
-- [x] RMS Cartesian curvature
+- [x] RMS curvature
 - [x] RMS curvature rate
 - [x] planning computation time
 
-#### 14.8 Canonical Single-Scenario Benchmark
-先使用一个固定 static-obstacle case 验证完整 Benchmark pipeline。
+#### 14.6 Benchmark visualization
 
-统一：
-- [x] Reference Line
-- [x] initial VehicleState
-- [x] vehicle geometry
-- [x] road boundary
-- [x] obstacle geometry
-- [x] minimum clearance
-- [x] max curvature
-- [x] planning horizon
-- [x] discretization resolution
-- [x] maneuver intent
-
-输出：
-- [x] Sampling metrics
-- [x] Optimization metrics
-- [x] unified comparison table
-- [x] 确认 metric evaluator 数值正确
-
-#### 14.9 Benchmark Visualization
-只显示共同物理世界和最终 planner output，
-不混入各 planner 内部的 obstacle approximation。
-
-- [x] Cartesian overlay：Sampling vs Optimization
+- [x] Cartesian overlay
 - [x] Frenet `s-l` overlay
-- [x] Reference Line
-- [x] road boundary
+- [x] road boundaries
 - [x] original obstacle
 - [x] Sampling best path
-- [x] Optimization best path
+- [x] Optimization path
 
-#### 14.10 Runtime Benchmark
-统一完整 planner pipeline 的计时范围。
+#### 14.7 Runtime / stress benchmark
 
-- [x] 定义 warm-up runs
-- [x] 定义 repeated runs
-- [x] Sampling 计时包含 candidate generation / pruning / selection
-- [x] Optimization 计时包含 corridor / QP build / solve / reconstruction
-- [x] mean runtime
-- [x] median runtime
-- [x] P95 runtime
-- [x] min / max runtime
-
-#### 14.11 Multi-Scenario & Stress Benchmark
-在 canonical case 正确后扩展测试覆盖。
-
-- [x] nominal straight
-- [x] lateral recovery
-- [x] static obstacle
-- [x] mirrored obstacle
-- [x] curved Reference Line
-- [x] curved Reference Line + obstacle
-- [x] narrower road
-- [x] obstacle lateral-position sweep
-- [x] obstacle longitudinal-position sweep
+- [x] warm-up / repeated timing
+- [x] full Sampling pipeline timing
+- [x] full Optimization pipeline timing
+- [x] nominal / curved / obstacle / narrow-road scenarios
+- [x] obstacle lateral sweep
+- [x] obstacle longitudinal sweep
 - [x] road-width sweep
-- [x] 统计 planning success rate
-- [x] 记录 failure cases
+- [x] failure recording
 
-#### 14.12 Planner Tuning
-Baseline Benchmark 完成后，再分别优化两个 Planner。
+#### 14.8 Tuning methodology
 
-Sampling tuning：
-- [x] `l / l' / l'' / l'''` weights
-- [x] terminal `l / l'` weights
-- [x] lateral sampling interval
-- [x] bypass lateral range
-- [x] bypass-length sampling
-- [x] terminal-state sampling density
-- [x] candidate count vs runtime
+- [x] independent tuning scenario set
+- [x] freeze Sampling candidate/config search space
+- [x] freeze Optimization tuning parameters
+- [x] avoid tuning on final evaluation scenarios
 
-Optimization tuning：
-- [x] `l / l' / l'' / l'''` weights
-- [x] terminal `l / l'` weights
-- [x] longitudinal discretization resolution
-- [x] curvature-proxy bound
-- [x] corridor parameters
-- [x] solver tolerance vs runtime
+#### 14.9 Original frozen evaluation
 
-Tuning methodology：
-- [x] 建立独立 tuning scenario set
-- [x] 两个 Planner 分别调到合理最佳性能
-- [x] 冻结 tuned configs
-- [x] 不使用 final evaluation scenarios 调参
+Original 9-scenario evaluation result before physical-consistency redesign:
 
-#### 14.13 Final Planner Evaluation
-使用冻结后的 tuned configs，
-在未参与调参的 evaluation scenario set 上重新比较。
+- Sampling: `8 / 9`
+- Optimization: `8 / 9`
+- shared failure: `evaluation_road_half_width_1.85`
 
-- [x] Sampling tuned result
-- [x] Optimization tuned result
-- [x] path quality comparison
-- [x] smoothness comparison
-- [x] safety margin comparison
-- [x] success-rate comparison
-- [x] computation-time comparison
-- [x] 分析 Sampling density trade-off
-- [x] 分析 convex Optimization approximation trade-off
-- [x] 总结两种 Planner 的优缺点
-- [x] 保存 CSV / figures / benchmark summary
+The `1.85 m` case was already part of the original evaluation geometry; it was not added later.
 
-后续 Phase 15 / 16 再进行 Curvature-aware MPC 和
-same-controller closed-loop Planning & Control Benchmark。
+---
 
-### 15. Curvature-aware MPC + Systematic Tuning
-Phase 1 MPC 保留为冻结 Baseline。
-增加曲率前馈：
+### 15. Optimization Planner Physical-Consistency Redesign
+
+这一阶段由 **Planning → MPC / vehicle consistency** 触发，而不是为了提高 benchmark 分数。
+
+#### 15.1 Vehicle-derived curvature limit
+
+旧 benchmark 使用过宽松的：
+
+`κ_max = 1.0 1/m`
+
+根据车辆参数：
+
+- wheelbase `L = 2.7 m`
+- max steering `δ_max = 0.5 rad`
+
+改为：
+
+`κ_max = tan(δ_max) / L ≈ 0.202334 1/m`
+
+- [x] 使用 vehicle config 推导 curvature limit
+- [x] Planning acceptance 与 vehicle/MPC physical capability 对齐
+- [x] exact Cartesian curvature post-validation
+
+#### 15.2 Root-cause diagnosis
+
+真实曲率限制暴露旧 Optimization formulation 的结构性问题。
+
+- [x] 对比 Sampling 与 Optimization 在相同 physical constraints 下的 feasibility
+- [x] 确认 close-obstacle scene 并非天然物理不可行
+- [x] 识别 `l`-only + finite-difference initial constraints 的 early-path coupling / start-locking
+- [x] 识别 rectangular Frenet corridor 对 vehicle heading freedom 的保守性
+- [x] 判断问题属于 formulation limitation，而非简单 objective-weight tuning
+
+#### 15.3 Explicit Frenet state
+
+新 Optimization state：
+
+`x = [l, l', l'']`
+
+- [x] explicit `l`
+- [x] explicit `l'`
+- [x] explicit `l''`
+- [x] direct initial-state constraints
+
+#### 15.4 Piecewise-constant-jerk dynamics
+
+- [x] `j_i = (l''_{i+1} - l''_i) / Δs`
+- [x] `l'_{i+1} = l'_i + Δs/2 (l''_i + l''_{i+1})`
+- [x] `l_{i+1} = l_i + Δs l'_i + Δs²/3 l''_i + Δs²/6 l''_{i+1}`
+- [x] linear equality constraints for QP
+
+#### 15.5 Heading-aware obstacle geometry
+
+- [x] Frenet heading relation `tan(Δψ) = l' / (1 - κ_r l)`
+- [x] heading-aware nominal obstacle constraints
+- [x] exact rotated vehicle rectangle vs circular obstacle clearance
+- [x] sampled-pose exact clearance validation
+
+#### 15.6 Sequential convex QP refinement
+
+- [x] numerical clearance gradient w.r.t. `l`
+- [x] numerical clearance gradient w.r.t. `l'`
+- [x] local linearized clearance constraint
+- [x] trust region in `l`
+- [x] trust region in `l'`
+- [x] iterative QP refinement
+- [x] exact revalidation after each solve
+
+Frozen redesign settings include:
+
+- `sequential_max_iterations = 6`
+- `clearance_numerical_buffer_m = 0.001`
+- `trust_region_l_m = 0.15`
+- `trust_region_dl = 0.08`
+- clearance gradient epsilon `= 1e-4`
+
+#### 15.7 Development-only regression
+
+- [x] dedicated `validate_planner_redesign_development.py`
+- [x] development regression does not build or run final evaluation scenarios
+- [x] required development/tuning scenarios: `7 / 7 PASS`
+- [x] stress envelope: `19` cases
+- [x] production-valid stress successes: `16`
+- [x] capability-boundary / infeasible stress cases: `3`
+- [x] near-boundary diagnostics
+- [x] independent rotated-footprint road diagnostic
+
+#### 15.8 Road-boundary limitation documented
+
+Production road acceptance remains:
+
+`Frenet centerline ± vehicle half-width`
+
+- [x] keep shared production road contract unchanged for both planners
+- [x] add rotated-corner diagnostic warning
+- [x] document cases where rotated corners can exceed the simplified road contract
+- [ ] future: exact rotated-footprint production road-boundary constraint
+
+Correct project wording:
+
+> Exact sampled-pose obstacle clearance and Cartesian curvature validation, with Frenet-based road-boundary validation.
+
+#### 15.9 Post-redesign frozen evaluation
+
+Same 9 scenario geometries rerun after redesign:
+
+- Sampling: `8 / 9`
+- Optimization: `9 / 9`
+- Sampling failure: `evaluation_road_half_width_1.85`
+- Optimization: no evaluation failure
+
+Methodological note:
+
+Because some evaluation cases were inspected during diagnosis, this set is better described as a **frozen evaluation suite** rather than a pristine unseen held-out set.
+
+- [x] do not expand/tune Sampling candidate set after observing `1.85 m` result
+- [x] compare path quality only on common-success scenarios
+- [x] archive previous figures
+- [x] save source provenance
+- [x] update benchmark documentation
+
+---
+
+### 16. Curvature-aware MPC + Planning Integration
+
+Phase 1 MPC 保留为 baseline。下一步将当前 spatial planned path 接入 common controller。
+
 - [ ] 从 planned path 获取 reference curvature
-- [ ] 加入 steering curvature feedforward
-- [ ] 保留 MPC feedback correction
-- [ ] 验证 curved-path tracking
-- [ ] 再系统搜索 horizon / Q / R
-- [ ] 比较 Baseline MPC 与 Tuned MPC
+- [ ] steering curvature feedforward
+- [ ] MPC feedback correction
+- [ ] 将 spatial path 配置为可跟踪 trajectory / speed profile
+- [ ] curved-path tracking validation
+- [ ] Sampling path + common MPC
+- [ ] Optimization path + common MPC
+- [ ] 检查 planner curvature 与 MPC steering constraint 一致性
+- [ ] 系统搜索 horizon / Q / R（仅在需要时）
 
-### 16. Final Planning & Control Benchmark
-使用统一 Tuned MPC 重新运行：
-- [ ] Sampling Planner
-- [ ] Optimization Planner
-- [ ] tracking error
+---
+
+### 17. Final Planning & Control Benchmark
+
+使用统一 controller 比较两种 Planner 的闭环系统表现。
+
+- [ ] Sampling Planner + common MPC
+- [ ] Optimization Planner + common MPC
+- [ ] lateral tracking error
 - [ ] heading error
 - [ ] steering / steering rate
 - [ ] trajectory quality
 - [ ] planning computation time
+- [ ] controller feasibility
 - [ ] failure cases
 
+---
+
 ## Phase 3 — C++ Core Engineering
-将数据结构、Reference Line、Frenet、车辆模型、MPC 以及两种核心 Planner 迁移到 C++，并验证 Python / C++ 数值一致性。
+
+将核心数据结构、Reference Line、Frenet、车辆模型、MPC 和 Planner 迁移到 C++，并验证 Python / C++ 数值一致性。
 
 ## Phase 4 — Dynamic Scenarios & System Evaluation
-加入动态车辆、行人、lead-vehicle slowdown 和 cut-in 等场景，建立 collision rate、task completion、minimum distance 等系统级指标。
+
+加入动态车辆、行人、lead-vehicle slowdown、cut-in 等场景，并建立 collision rate、task completion、minimum distance 等系统级指标。
 
 ## Phase 5 — Hybrid Planner（Optional）
-使用 Sampling 提供可行解 / 初值，再由 Optimization refinement，并与前两种 Planner 做统一 Benchmark。
+
+Sampling 提供可行解 / initial guess，再由 Optimization refinement，并与两种独立 Planner 做统一 Benchmark。
 
 ## Phase 6 — Safety & Fallback
-建立独立于高层智能模块的 deterministic safety checker、planning failure fallback 和安全介入统计。
+
+建立独立 deterministic safety checker、planning failure fallback 和安全介入统计。
 
 ## Phase 7 — VLM Behavior Layer
-接入小型 VLM，仅负责 KEEP_LANE / SLOW_DOWN / STOP / CAUTIOUS 等高层 BehaviorCommand，不让 VLM 直接生成控制量。
+
+VLM 只负责高层 `KEEP_LANE / SLOW_DOWN / STOP / CAUTIOUS` 等 `BehaviorCommand`，不直接生成 control command。
 
 ## Phase 8 — Rule-based vs VLM Evaluation
+
 在相同场景和相同下游 Planning & Control 下比较规则决策与 VLM 的正确率、延迟、安全介入和 failure cases。
 
 ## Phase 9 — Portfolio Evaluation & Documentation
-整理自动化测试、Failure Case、系统架构、Planner Benchmark、P&C Benchmark、图表、GIF / Demo 和技术文档。
+
+- [ ] README 重构
+- [ ] 系统架构图
+- [ ] Planner benchmark figure
+- [ ] Planning–Control integration results
+- [ ] failure-case documentation
+- [ ] interview / presentation material
+- [ ] GIF / demo
 
 ## Phase 10 — ROS 2 Integration（Optional）
-最后将 Behavior、Planning、Control 和 Simulation 节点化，用 topic / rosbag / RViz 展示完整系统。
+
+将 Behavior、Planning、Control 和 Simulation 节点化，用 topic / rosbag / RViz 展示完整系统。
