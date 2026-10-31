@@ -177,11 +177,7 @@ def build_fixed_geometry_candidate(scenario, winner: CandidateMetadata, junction
         end_d2l_ds2=0.0,
         length=winner.bypass_length,
     )
-    bypass_trajectory = sample_quintic_candidate(
-        curve=bypass_curve,
-        start_s=initial.s,
-        resolution=scenario.resolution_m,
-    )
+    bypass_trajectory = sample_quintic_candidate(curve=bypass_curve, start_s=initial.s, resolution=scenario.resolution_m)
     junction = bypass_trajectory.points[-1]
 
     return_curve = QuinticPolynomial(
@@ -193,11 +189,7 @@ def build_fixed_geometry_candidate(scenario, winner: CandidateMetadata, junction
         end_d2l_ds2=config.returning_final_d2l_ds2,
         length=winner.return_length,
     )
-    return_trajectory = sample_quintic_candidate(
-        curve=return_curve,
-        start_s=junction.s,
-        resolution=scenario.resolution_m,
-    )
+    return_trajectory = sample_quintic_candidate(curve=return_curve, start_s=junction.s, resolution=scenario.resolution_m)
     trajectory = FrenetTrajectory(points=bypass_trajectory.points + return_trajectory.points[1:])
     path = frenet_trajectory_to_path(trajectory=trajectory, reference_line=scenario.reference_line)
     return trajectory, path
@@ -212,6 +204,7 @@ def describe_candidate(junction_dl_ds: float, trajectory, path, scenario) -> Non
     limiting = find_safe_speed_limiting_segment(
         path=path,
         wheelbase_m=MPC_WHEELBASE_M,
+        max_steering_angle=MPC_MAX_STEERING_ANGLE,
         max_steering_rate=MPC_MAX_STEERING_RATE,
     )
 
@@ -227,12 +220,13 @@ def describe_candidate(junction_dl_ds: float, trajectory, path, scenario) -> Non
     else:
         safe_speed_text = "   n/a"
 
+    max_gradient = 0.0 if limiting is None else abs(limiting.dsteering_ds)
     baseline = " <-- baseline" if abs(junction_dl_ds) < 1e-12 else ""
     print(
         f"junction_dl={junction_dl_ds:+.2f}  feasible={str(feasible):5s}  "
         f"curv={str(curvature_ok):5s} clear={str(clearance_ok):5s} road={str(road_ok):5s}  "
         f"min_clear={min_clearance:+.3f} m  max|kappa|={max_curvature:.5f}  "
-        f"max|d_delta/ds|={limiting.max_abs_dsteering_ds:.5f} rad/m  "
+        f"max|d_delta/ds|={max_gradient:.5f} rad/m  "
         f"v_safe={safe_speed_text} m/s  objective={objective:.6f}{baseline}"
     )
 
@@ -249,11 +243,7 @@ def main() -> None:
     print("\n=== Fixed-geometry junction dl/ds sweep ===")
 
     for junction_dl_ds in JUNCTION_DL_DS_VALUES:
-        trajectory, path = build_fixed_geometry_candidate(
-            scenario=scenario,
-            winner=winner,
-            junction_dl_ds=junction_dl_ds,
-        )
+        trajectory, path = build_fixed_geometry_candidate(scenario=scenario, winner=winner, junction_dl_ds=junction_dl_ds)
         describe_candidate(junction_dl_ds, trajectory, path, scenario)
 
 
