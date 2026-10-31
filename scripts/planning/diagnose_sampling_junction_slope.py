@@ -28,7 +28,7 @@ from src.planning.sampling_planner import generate_returning_frenet_candidate, s
 from src.planning.soft_cost import matched_total_cost
 
 
-JUNCTION_DL_DS_VALUES = (-0.20, -0.10, 0.00, 0.10, 0.20)
+JUNCTION_DL_DS_VALUES = (-0.20, -0.15, -0.125, -0.10, -0.075, -0.05, -0.025, 0.00, 0.05, 0.10, 0.20)
 
 
 @dataclass(frozen=True)
@@ -154,13 +154,9 @@ def reproduce_production_winner(scenario) -> CandidateMetadata:
     if len(adapter_result.path) != len(winner.path):
         raise RuntimeError("Reproduced winner has different path length from production adapter.")
 
-    max_path_difference = max(
-        math.hypot(a.x - b.x, a.y - b.y)
-        for a, b in zip(adapter_result.path, winner.path)
-    )
+    max_path_difference = max(math.hypot(a.x - b.x, a.y - b.y) for a, b in zip(adapter_result.path, winner.path))
     if max_path_difference > 1e-9:
         raise RuntimeError(f"Failed to reproduce production winner; max path difference={max_path_difference:.3e} m")
-
     return winner
 
 
@@ -201,14 +197,14 @@ def describe_candidate(junction_dl_ds: float, trajectory, path, scenario) -> Non
     min_clearance = minimum_clearance(path, scenario)
     max_curvature = max(abs(point.curvature) for point in path)
     objective = matched_selection_cost(trajectory, scenario)
-    limiting = find_safe_speed_limiting_segment(
-        path=path,
-        wheelbase_m=MPC_WHEELBASE_M,
-        max_steering_angle=MPC_MAX_STEERING_ANGLE,
-        max_steering_rate=MPC_MAX_STEERING_RATE,
-    )
 
     if curvature_ok:
+        limiting = find_safe_speed_limiting_segment(
+            path=path,
+            wheelbase_m=MPC_WHEELBASE_M,
+            max_steering_angle=MPC_MAX_STEERING_ANGLE,
+            max_steering_rate=MPC_MAX_STEERING_RATE,
+        )
         safe_speed = compute_constant_safe_speed(
             path=path,
             target_speed_mps=scenario.vehicle_state.speed,
@@ -216,18 +212,19 @@ def describe_candidate(junction_dl_ds: float, trajectory, path, scenario) -> Non
             max_steering_angle=MPC_MAX_STEERING_ANGLE,
             max_steering_rate=MPC_MAX_STEERING_RATE,
         )
+        max_gradient_text = f"{0.0 if limiting is None else abs(limiting.dsteering_ds):.5f}"
         safe_speed_text = f"{safe_speed:6.3f}"
     else:
+        max_gradient_text = "   n/a "
         safe_speed_text = "   n/a"
 
-    max_gradient = 0.0 if limiting is None else abs(limiting.dsteering_ds)
     baseline = " <-- baseline" if abs(junction_dl_ds) < 1e-12 else ""
     print(
-        f"junction_dl={junction_dl_ds:+.2f}  feasible={str(feasible):5s}  "
+        f"junction_dl={junction_dl_ds:+.3f}  feasible={str(feasible):5s}  "
         f"curv={str(curvature_ok):5s} clear={str(clearance_ok):5s} road={str(road_ok):5s}  "
         f"min_clear={min_clearance:+.3f} m  max|kappa|={max_curvature:.5f}  "
-        f"max|d_delta/ds|={max_gradient:.5f} rad/m  "
-        f"v_safe={safe_speed_text} m/s  objective={objective:.6f}{baseline}"
+        f"max|d_delta/ds|={max_gradient_text} rad/m  v_safe={safe_speed_text} m/s  "
+        f"objective={objective:.6f}{baseline}"
     )
 
 
