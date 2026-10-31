@@ -384,22 +384,52 @@ The Sampling candidate set is intentionally not expanded after observing this fi
 
 ---
 
-## 12. Computation-time Comparison
+## 12. Computational Cost of the Physical-Consistency Redesign
 
-Runtime over all 9 post-redesign evaluation scenarios:
+The redesigned planner is more physically meaningful, but it is also materially more expensive than the original Optimization formulation.
+
+The original frozen benchmark used the simpler `l`-only convex-corridor Optimization Planner and measured approximately:
+
+- mean runtime: `7.602 ms`
+- median runtime: `7.220 ms`
+- maximum runtime: `11.087 ms`
+
+The redesigned Optimization Planner now measures:
+
+- mean runtime: `46.279 ms`
+- median runtime: `53.753 ms`
+- maximum runtime: `62.700 ms`
+
+| Optimization version | Main formulation | Mean runtime |
+| --- | --- | ---: |
+| Original | `l`-only + finite differences + convex corridor | `7.602 ms` |
+| Redesigned | explicit `[l,l',l'']` + exact footprint evaluation + sequential QP refinement | `46.279 ms` |
+
+The historical mean runtime therefore increases by approximately **6.1×**.
+
+This increase is expected from the redesigned algorithm. A difficult obstacle case can require multiple sequential QP subproblems, and each refinement cycle may include:
+
+1. Cartesian path reconstruction;
+2. exact sampled-pose vehicle-footprint clearance evaluation;
+3. numerical clearance-gradient computation;
+4. trust-region constraint construction;
+5. another OSQP solve;
+6. exact physical revalidation.
+
+The trade-off is deliberate: the old formulation was very fast, but its simplified state and obstacle representation could accept paths inconsistent with vehicle curvature capability or remove physically useful heading-dependent solutions. The redesign spends computation to address those limitations.
+
+Importantly, the comparison with Sampling remains favorable. Runtime over all 9 current evaluation scenarios is:
 
 | Planner | Mean [ms] | Median [ms] | Min [ms] | Max [ms] |
 | --- | ---: | ---: | ---: | ---: |
 | Sampling | 190.665 | 188.397 | 181.477 | 220.490 |
-| Optimization | **46.279** | **53.753** | **12.502** | **62.700** |
+| Redesigned Optimization | **46.279** | **53.753** | **12.502** | **62.700** |
 
-Optimization is approximately `4.1×` faster on mean runtime in the current benchmark.
+So despite being roughly **6.1× slower than the original Optimization formulation**, the redesigned Optimization Planner remains approximately **4.1× faster than Sampling** on mean runtime in the current benchmark.
 
-This is slower than the original simple convex-corridor QP because the redesigned planner can solve several sequential QP subproblems and repeatedly evaluate exact footprint geometry.
+This is a useful engineering trade-off rather than a free improvement:
 
-The runtime result therefore reflects an explicit engineering trade-off:
-
-> The redesign spends additional computation on physically meaningful state and clearance handling, while remaining substantially faster than evaluating the full Sampling candidate library.
+> The redesign exchanges some of the original QP's runtime advantage for physically consistent curvature handling, orientation-aware obstacle feasibility, and a larger useful feasible region.
 
 ---
 
@@ -453,6 +483,7 @@ Strengths:
 
 Limitations:
 
+- mean runtime increased from approximately `7.6 ms` to `46.3 ms` after the physical-consistency redesign;
 - sequential convex refinement increases runtime relative to the old simple QP;
 - exact obstacle clearance is sampled-pose rather than continuous inter-knot checking;
 - production road-boundary validation remains Frenet-width based rather than exact rotated-footprint containment;
@@ -474,12 +505,13 @@ The project demonstrates the following engineering process:
 5. use cross-planner evidence to distinguish scene infeasibility from formulation failure;
 6. identify state-representation and obstacle-geometry limitations;
 7. redesign the Optimization formulation rather than continuing weight tuning;
-8. validate on development/stress scenarios;
-9. rerun a frozen evaluation suite without retuning Sampling on its observed final failure.
+8. accept the resulting runtime increase as an explicit engineering trade-off;
+9. validate on development/stress scenarios;
+10. rerun a frozen evaluation suite without retuning Sampling on its observed final failure.
 
 The central lesson is:
 
-> A mathematically feasible planner output is not automatically a physically trackable vehicle path. Planning constraints must remain consistent with downstream Control and vehicle capability.
+> A mathematically feasible planner output is not automatically a physically trackable vehicle path. Planning constraints must remain consistent with downstream Control and vehicle capability, and improving that consistency can require a measurable computation-time trade-off.
 
 ---
 
