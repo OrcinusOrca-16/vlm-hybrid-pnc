@@ -2,13 +2,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from src.common.types import (
-    StaticObstacle,
-    VehicleParams,
-)
-from src.config.planning import (
-    DEFAULT_OPTIMIZATION_PLANNER_CONFIG,
-)
+from src.common.types import StaticObstacle, VehicleParams
+from src.config.planning import DEFAULT_OPTIMIZATION_PLANNER_CONFIG
 from src.planning.reference_line import ReferenceLine
 from src.planning.frenet import xy_to_sl
 
@@ -36,45 +31,26 @@ class InflatedFrenetObstacle:
 
 
 def discretize_planning_horizon(
-    start_s: float,
-    reference_line: ReferenceLine,
-    planning_horizon_m: float,
-    resolution_m: float,
+    start_s: float, reference_line: ReferenceLine, planning_horizon_m: float, resolution_m: float
 ) -> np.ndarray:
     if not 0.0 <= start_s <= reference_line.length:
-        raise ValueError(
-            "start_s must lie on the reference line."
-        )
+        raise ValueError("start_s must lie on the reference line.")
 
     if planning_horizon_m <= 0.0:
-        raise ValueError(
-            "planning_horizon_m must be positive."
-        )
+        raise ValueError("planning_horizon_m must be positive.")
 
     if resolution_m <= 0.0:
-        raise ValueError(
-            "resolution_m must be positive."
-        )
+        raise ValueError("resolution_m must be positive.")
 
-    end_s = min(
-        start_s + planning_horizon_m,
-        reference_line.length,
-    )
+    end_s = min(start_s + planning_horizon_m, reference_line.length)
 
     num_intervals = int(
         np.floor(
-            (end_s - start_s)
-            / resolution_m
-            + DEFAULT_OPTIMIZATION_PLANNER_CONFIG
-            .horizon_discretization_epsilon_m
+            (end_s - start_s) / resolution_m + DEFAULT_OPTIMIZATION_PLANNER_CONFIG.horizon_discretization_epsilon_m
         )
     )
 
-    return (
-        start_s
-        + np.arange(num_intervals + 1)
-        * resolution_m
-    )
+    return start_s + np.arange(num_intervals + 1) * resolution_m
 
 
 def build_base_lateral_corridor(
@@ -87,207 +63,96 @@ def build_base_lateral_corridor(
     resolution_m: float,
 ) -> LateralCorridor:
     if road_min_l >= road_max_l:
-        raise ValueError(
-            "road_min_l must be smaller than road_max_l."
-        )
+        raise ValueError("road_min_l must be smaller than road_max_l.")
 
-    half_width = (
-        vehicle_params.width_m / 2.0
-    )
+    half_width = vehicle_params.width_m / 2.0
 
-    allowed_min_l = (
-        road_min_l + half_width
-    )
+    allowed_min_l = road_min_l + half_width
 
-    allowed_max_l = (
-        road_max_l - half_width
-    )
+    allowed_max_l = road_max_l - half_width
 
     if allowed_min_l > allowed_max_l:
-        raise ValueError(
-            "Road width is smaller than vehicle width."
-        )
+        raise ValueError("Road width is smaller than vehicle width.")
 
     s_values = discretize_planning_horizon(
-        start_s=start_s,
-        reference_line=reference_line,
-        planning_horizon_m=planning_horizon_m,
-        resolution_m=resolution_m,
+        start_s=start_s, reference_line=reference_line, planning_horizon_m=planning_horizon_m, resolution_m=resolution_m
     )
 
-    lower_bounds = np.full(
-        s_values.size,
-        allowed_min_l,
-    )
+    lower_bounds = np.full(s_values.size, allowed_min_l)
 
-    upper_bounds = np.full(
-        s_values.size,
-        allowed_max_l,
-    )
+    upper_bounds = np.full(s_values.size, allowed_max_l)
 
-    return LateralCorridor(
-        s_values=s_values,
-        lower_bounds=lower_bounds,
-        upper_bounds=upper_bounds,
-    )
+    return LateralCorridor(s_values=s_values, lower_bounds=lower_bounds, upper_bounds=upper_bounds)
 
 
-def project_obstacle_to_frenet(
-    obstacle: StaticObstacle,
-    reference_line: ReferenceLine,
-) -> FrenetObstacle:
-    frenet_point = xy_to_sl(
-        x=obstacle.x,
-        y=obstacle.y,
-        reference_line=reference_line,
-    )
+def project_obstacle_to_frenet(obstacle: StaticObstacle, reference_line: ReferenceLine) -> FrenetObstacle:
+    frenet_point = xy_to_sl(x=obstacle.x, y=obstacle.y, reference_line=reference_line)
 
-    return FrenetObstacle(
-        s=frenet_point.s,
-        l=frenet_point.l,
-        radius_m=obstacle.radius_m,
-    )
+    return FrenetObstacle(s=frenet_point.s, l=frenet_point.l, radius_m=obstacle.radius_m)
 
 
 def inflate_frenet_obstacle(
     obstacle: FrenetObstacle,
     vehicle_params: VehicleParams,
     minimum_clearance_m: float,
-    safety_margin_m: float = (
-        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
-        .obstacle_inflation_safety_margin_m
-    ),
+    safety_margin_m: float = (DEFAULT_OPTIMIZATION_PLANNER_CONFIG.obstacle_inflation_safety_margin_m),
 ) -> InflatedFrenetObstacle:
     if minimum_clearance_m < 0.0:
-        raise ValueError(
-            "minimum_clearance_m must not be negative."
-        )
+        raise ValueError("minimum_clearance_m must not be negative.")
 
     if safety_margin_m < 0.0:
-        raise ValueError(
-            "safety_margin_m must not be negative."
-        )
+        raise ValueError("safety_margin_m must not be negative.")
 
-    effective_radius = (
-        obstacle.radius_m
-        + minimum_clearance_m
-        + safety_margin_m
-    )
+    effective_radius = obstacle.radius_m + minimum_clearance_m + safety_margin_m
 
-    front_extent = (
-        vehicle_params.wheelbase_m
-        + vehicle_params.front_overhang_m
-    )
+    front_extent = vehicle_params.wheelbase_m + vehicle_params.front_overhang_m
 
-    rear_extent = (
-        vehicle_params.rear_overhang_m
-    )
+    rear_extent = vehicle_params.rear_overhang_m
 
-    half_width = (
-        vehicle_params.width_m / 2.0
-    )
+    half_width = vehicle_params.width_m / 2.0
 
     return InflatedFrenetObstacle(
-        min_s=(
-            obstacle.s
-            - effective_radius
-            - front_extent
-        ),
-        max_s=(
-            obstacle.s
-            + effective_radius
-            + rear_extent
-        ),
-        min_l=(
-            obstacle.l
-            - effective_radius
-            - half_width
-        ),
-        max_l=(
-            obstacle.l
-            + effective_radius
-            + half_width
-        ),
+        min_s=(obstacle.s - effective_radius - front_extent),
+        max_s=(obstacle.s + effective_radius + rear_extent),
+        min_l=(obstacle.l - effective_radius - half_width),
+        max_l=(obstacle.l + effective_radius + half_width),
     )
 
 
-def is_corridor_feasible(
-    corridor: LateralCorridor,
-) -> bool:
-    return bool(
-        np.all(
-            corridor.lower_bounds
-            <= corridor.upper_bounds
-        )
-    )
+def is_corridor_feasible(corridor: LateralCorridor) -> bool:
+    return bool(np.all(corridor.lower_bounds <= corridor.upper_bounds))
 
 
 def build_obstacle_branch_corridors(
     base_corridor: LateralCorridor,
     obstacle: InflatedFrenetObstacle,
-    corridor_epsilon_m: float = (
-        DEFAULT_OPTIMIZATION_PLANNER_CONFIG
-        .corridor_affected_epsilon_m
-    ),
-) -> tuple[
-    LateralCorridor,
-    LateralCorridor,
-]:
+    corridor_epsilon_m: float = (DEFAULT_OPTIMIZATION_PLANNER_CONFIG.corridor_affected_epsilon_m),
+) -> tuple[LateralCorridor, LateralCorridor]:
     if corridor_epsilon_m < 0.0:
-        raise ValueError(
-            "corridor_epsilon_m must not be negative."
-        )
+        raise ValueError("corridor_epsilon_m must not be negative.")
 
-    affected = (
-        (
-            base_corridor.s_values
-            >= obstacle.min_s - corridor_epsilon_m
-        )
-        & (
-            base_corridor.s_values
-            <= obstacle.max_s + corridor_epsilon_m
-        )
+    affected = (base_corridor.s_values >= obstacle.min_s - corridor_epsilon_m) & (
+        base_corridor.s_values <= obstacle.max_s + corridor_epsilon_m
     )
 
-    negative_lower_bounds = (
-        base_corridor.lower_bounds.copy()
-    )
+    negative_lower_bounds = base_corridor.lower_bounds.copy()
 
-    negative_upper_bounds = (
-        base_corridor.upper_bounds.copy()
-    )
+    negative_upper_bounds = base_corridor.upper_bounds.copy()
 
-    negative_upper_bounds[affected] = np.minimum(
-        negative_upper_bounds[affected],
-        obstacle.min_l,
-    )
+    negative_upper_bounds[affected] = np.minimum(negative_upper_bounds[affected], obstacle.min_l)
 
-    positive_lower_bounds = (
-        base_corridor.lower_bounds.copy()
-    )
+    positive_lower_bounds = base_corridor.lower_bounds.copy()
 
-    positive_upper_bounds = (
-        base_corridor.upper_bounds.copy()
-    )
+    positive_upper_bounds = base_corridor.upper_bounds.copy()
 
-    positive_lower_bounds[affected] = np.maximum(
-        positive_lower_bounds[affected],
-        obstacle.max_l,
-    )
+    positive_lower_bounds[affected] = np.maximum(positive_lower_bounds[affected], obstacle.max_l)
 
     negative_l_corridor = LateralCorridor(
-        s_values=base_corridor.s_values.copy(),
-        lower_bounds=negative_lower_bounds,
-        upper_bounds=negative_upper_bounds,
+        s_values=base_corridor.s_values.copy(), lower_bounds=negative_lower_bounds, upper_bounds=negative_upper_bounds
     )
 
     positive_l_corridor = LateralCorridor(
-        s_values=base_corridor.s_values.copy(),
-        lower_bounds=positive_lower_bounds,
-        upper_bounds=positive_upper_bounds,
+        s_values=base_corridor.s_values.copy(), lower_bounds=positive_lower_bounds, upper_bounds=positive_upper_bounds
     )
 
-    return (
-        negative_l_corridor,
-        positive_l_corridor,
-    )
+    return (negative_l_corridor, positive_l_corridor)

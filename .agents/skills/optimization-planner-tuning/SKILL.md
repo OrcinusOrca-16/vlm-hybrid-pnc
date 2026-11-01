@@ -32,8 +32,8 @@ Read at minimum:
 1. `docs/roadmap.md`
 2. `src/config/planning.py`
 3. `src/benchmark/tuning_scenario_suite.py`
-4. `scripts/planning/run_optimization_tuning.py`
-5. `scripts/planning/run_optimization_tuning_reproduction.py`, if present
+4. `scripts/planning/development/run_optimization_tuning.py`
+5. `scripts/planning/development/run_optimization_tuning_reproduction.py`, if present
 6. `src/benchmark/optimization_adapter.py`
 7. `src/planning/optimization_planner.py`
 8. `src/planning/lateral_corridor.py`
@@ -253,8 +253,8 @@ If those roles become conflated, fix the implementation before continuing tuning
 
 Prefer reusable experiment automation.
 
-- `scripts/planning/run_optimization_tuning.py` may serve as the shared tuning engine / current experiment runner.
-- `scripts/planning/run_optimization_tuning_reproduction.py` may preserve the historical full study from frozen pre-tuning parameters.
+- `scripts/planning/development/run_optimization_tuning.py` may serve as the shared tuning engine / current experiment runner.
+- `scripts/planning/development/run_optimization_tuning_reproduction.py` may preserve the historical full study from frozen pre-tuning parameters.
 
 Do not overwrite historical pre-tuning constants in a reproduction script with values from the already-tuned current config.
 

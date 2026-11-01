@@ -5,20 +5,9 @@ import numpy as np
 import osqp
 from scipy import sparse
 
-from src.common.types import (
-    FrenetTrajectory,
-    FrenetTrajectoryPoint,
-    PathPoint,
-    StaticObstacle,
-    VehicleParams,
-)
-from src.config.planning import (
-    DEFAULT_OPTIMIZATION_PLANNER_CONFIG,
-)
-from src.planning.frenet import (
-    frenet_to_cartesian_geometry,
-    frenet_trajectory_to_path,
-)
+from src.common.types import FrenetTrajectory, FrenetTrajectoryPoint, PathPoint, StaticObstacle, VehicleParams
+from src.config.planning import DEFAULT_OPTIMIZATION_PLANNER_CONFIG
+from src.planning.frenet import frenet_to_cartesian_geometry, frenet_trajectory_to_path
 from src.planning.hard_constraints import (
     is_curvature_feasible,
     is_obstacle_clearance_feasible,
@@ -26,22 +15,10 @@ from src.planning.hard_constraints import (
     is_road_boundary_feasible,
     obstacle_clearance,
 )
-from src.planning.lateral_corridor import (
-    LateralCorridor,
-    is_corridor_feasible,
-    project_obstacle_to_frenet,
-)
-from src.planning.path_objective import (
-    PathObjectiveQP,
-    PathObjectiveWeights,
-    evaluate_frenet_trajectory_objective,
-)
-from src.planning.reference_line import (
-    ReferenceLine,
-)
-from src.config.vehicle import (
-    DEFAULT_VEHICLE_CONFIG,
-)
+from src.planning.lateral_corridor import LateralCorridor, is_corridor_feasible, project_obstacle_to_frenet
+from src.planning.path_objective import PathObjectiveQP, PathObjectiveWeights, evaluate_frenet_trajectory_objective
+from src.planning.reference_line import ReferenceLine
+from src.config.vehicle import DEFAULT_VEHICLE_CONFIG
 
 
 @dataclass
@@ -54,6 +31,9 @@ class OptimizationPathResult:
     branch_name: str | None = None
     min_clearance_m: float | None = None
     max_curvature: float | None = None
+
+
+# State indexing and explicit-state QP construction
 
 
 def l_index(i: int, num_points: int) -> int:
@@ -81,6 +61,7 @@ def build_explicit_qp_objective(
     terminal_lateral_weight: float,
     terminal_first_derivative_weight: float,
 ) -> PathObjectiveQP:
+    """Build the QP objective over explicit Frenet states [l, l', l'']."""
     if num_points < 2:
         raise ValueError("At least two points are required.")
     if resolution_m <= 0.0:
@@ -116,11 +97,7 @@ def build_explicit_qp_objective(
         index = ddl_index(i, num_points)
         p_matrix[index, index] += 2.0 * second_derivative_coefficient
 
-    jerk_coefficient = (
-        third_derivative_weight
-        / (num_points - 1)
-        / (resolution_m ** 2)
-    )
+    jerk_coefficient = third_derivative_weight / (num_points - 1) / (resolution_m**2)
     for i in range(num_points - 1):
         index_0 = ddl_index(i, num_points)
         index_1 = ddl_index(i + 1, num_points)
@@ -131,32 +108,20 @@ def build_explicit_qp_objective(
 
     terminal_l_index = l_index(num_points - 1, num_points)
     p_matrix[terminal_l_index, terminal_l_index] += 2.0 * terminal_lateral_weight
-    q_vector[terminal_l_index] += (
-        -2.0 * terminal_lateral_weight * terminal_lateral_target_m
-    )
+    q_vector[terminal_l_index] += -2.0 * terminal_lateral_weight * terminal_lateral_target_m
 
     terminal_dl_index = dl_index(num_points - 1, num_points)
-    p_matrix[terminal_dl_index, terminal_dl_index] += (
-        2.0 * terminal_first_derivative_weight
-    )
-    q_vector[terminal_dl_index] += (
-        -2.0
-        * terminal_first_derivative_weight
-        * terminal_first_derivative_target
-    )
+    p_matrix[terminal_dl_index, terminal_dl_index] += 2.0 * terminal_first_derivative_weight
+    q_vector[terminal_dl_index] += -2.0 * terminal_first_derivative_weight * terminal_first_derivative_target
 
     constant = (
-        lateral_weight * lateral_reference_m ** 2
-        + terminal_lateral_weight * terminal_lateral_target_m ** 2
-        + terminal_first_derivative_weight * terminal_first_derivative_target ** 2
+        lateral_weight * lateral_reference_m**2
+        + terminal_lateral_weight * terminal_lateral_target_m**2
+        + terminal_first_derivative_weight * terminal_first_derivative_target**2
     )
 
     p_matrix += 1e-9 * np.eye(num_variables)
-    return PathObjectiveQP(
-        p=p_matrix,
-        q=q_vector,
-        constant=float(constant),
-    )
+    return PathObjectiveQP(p=p_matrix, q=q_vector, constant=float(constant))
 
 
 def build_explicit_qp_constraints(
@@ -170,15 +135,12 @@ def build_explicit_qp_constraints(
     initial_d2l_ds2: float,
     max_curvature: float,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Build corridor, initial-state, piecewise-jerk propagation, and curvature constraints."""
     s_values = np.asarray(s_values, dtype=float)
     lower_corridor = np.asarray(corridor_lower_bounds, dtype=float)
     upper_corridor = np.asarray(corridor_upper_bounds, dtype=float)
 
-    if (
-        s_values.ndim != 1
-        or lower_corridor.ndim != 1
-        or upper_corridor.ndim != 1
-    ):
+    if s_values.ndim != 1 or lower_corridor.ndim != 1 or upper_corridor.ndim != 1:
         raise ValueError("s_values and corridor bounds must be one-dimensional.")
     if not (s_values.shape == lower_corridor.shape == upper_corridor.shape):
         raise ValueError("s_values and corridor bounds must have the same shape.")
@@ -203,11 +165,7 @@ def build_explicit_qp_constraints(
     for i in range(num_points):
         row = np.zeros(num_variables, dtype=float)
         row[l_index(i, num_points)] = 1.0
-        add_constraint(
-            row=row,
-            lower=float(lower_corridor[i]),
-            upper=float(upper_corridor[i]),
-        )
+        add_constraint(row=row, lower=float(lower_corridor[i]), upper=float(upper_corridor[i]))
 
     initial_states = (
         (l_index(0, num_points), initial_l),
@@ -219,8 +177,10 @@ def build_explicit_qp_constraints(
         row[index] = 1.0
         add_constraint(row=row, lower=float(value), upper=float(value))
 
+    # Piecewise-constant jerk gives exact state propagation between neighboring knots.
+    # This keeps l, l', and l'' dynamically consistent instead of reconstructing them afterward.
     ds = resolution_m
-    ds_squared = ds ** 2
+    ds_squared = ds**2
     for i in range(num_points - 1):
         row = np.zeros(num_variables, dtype=float)
         row[dl_index(i + 1, num_points)] = 1.0
@@ -247,11 +207,7 @@ def build_explicit_qp_constraints(
         row[ddl_index(i, num_points)] = 1.0
         add_constraint(row=row, lower=ddl_lower, upper=ddl_upper)
 
-    return (
-        np.vstack(rows),
-        np.asarray(lower_bounds, dtype=float),
-        np.asarray(upper_bounds, dtype=float),
-    )
+    return (np.vstack(rows), np.asarray(lower_bounds, dtype=float), np.asarray(upper_bounds, dtype=float))
 
 
 def solve_qp(
@@ -264,6 +220,7 @@ def solve_qp(
     eps_abs: float = DEFAULT_OPTIMIZATION_PLANNER_CONFIG.osqp_eps_abs,
     eps_rel: float = DEFAULT_OPTIMIZATION_PLANNER_CONFIG.osqp_eps_rel,
 ) -> tuple[np.ndarray, float]:
+    """Solve one convex QP with OSQP and return the state vector and solver objective."""
     solver = osqp.OSQP()
     solver.setup(
         P=sparse.csc_matrix(np.triu(p_matrix)),
@@ -282,9 +239,9 @@ def solve_qp(
 
 
 def decode_explicit_solution(
-    s_values: np.ndarray,
-    solution: np.ndarray,
+    s_values: np.ndarray, solution: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, FrenetTrajectory]:
+    """Decode the stacked [l, l', l''] decision vector into a Frenet trajectory."""
     s_values = np.asarray(s_values, dtype=float)
     solution = np.asarray(solution, dtype=float)
     if s_values.ndim != 1:
@@ -297,8 +254,8 @@ def decode_explicit_solution(
         raise ValueError("Explicit solution must contain 3 * num_points variables.")
 
     lateral = solution[0:num_points]
-    first_derivative = solution[num_points:2 * num_points]
-    second_derivative = solution[2 * num_points:3 * num_points]
+    first_derivative = solution[num_points : 2 * num_points]
+    second_derivative = solution[2 * num_points : 3 * num_points]
 
     trajectory = FrenetTrajectory(
         points=[
@@ -314,6 +271,9 @@ def decode_explicit_solution(
     return lateral, first_derivative, second_derivative, trajectory
 
 
+# Exact vehicle geometry and sequential clearance refinement
+
+
 def clearance_from_frenet_state(
     reference_line: ReferenceLine,
     vehicle_params: VehicleParams,
@@ -322,28 +282,11 @@ def clearance_from_frenet_state(
     l: float,
     dl_ds: float,
 ) -> float:
-    frenet_point = FrenetTrajectoryPoint(
-        s=float(s),
-        l=float(l),
-        dl_ds=float(dl_ds),
-        d2l_ds2=0.0,
-    )
-    x, y, yaw, _ = frenet_to_cartesian_geometry(
-        frenet_point=frenet_point,
-        reference_line=reference_line,
-    )
-    path_point = PathPoint(
-        x=x,
-        y=y,
-        yaw=yaw,
-        curvature=0.0,
-        s=0.0,
-    )
-    return obstacle_clearance(
-        path_point=path_point,
-        vehicle_params=vehicle_params,
-        obstacle=obstacle,
-    )
+    """Evaluate exact rotated-footprint obstacle clearance for one Frenet state."""
+    frenet_point = FrenetTrajectoryPoint(s=float(s), l=float(l), dl_ds=float(dl_ds), d2l_ds2=0.0)
+    x, y, yaw, _ = frenet_to_cartesian_geometry(frenet_point=frenet_point, reference_line=reference_line)
+    path_point = PathPoint(x=x, y=y, yaw=yaw, curvature=0.0, s=0.0)
+    return obstacle_clearance(path_point=path_point, vehicle_params=vehicle_params, obstacle=obstacle)
 
 
 def clearance_gradient(
@@ -356,16 +299,12 @@ def clearance_gradient(
     gradient_eps_l: float,
     gradient_eps_dl: float,
 ) -> tuple[float, float, float]:
+    """Estimate the exact-clearance gradient with central differences in l and l'."""
     if gradient_eps_l <= 0.0 or gradient_eps_dl <= 0.0:
         raise ValueError("Gradient epsilons must be positive.")
 
     c0 = clearance_from_frenet_state(
-        reference_line=reference_line,
-        vehicle_params=vehicle_params,
-        obstacle=obstacle,
-        s=s,
-        l=l,
-        dl_ds=dl_ds,
+        reference_line=reference_line, vehicle_params=vehicle_params, obstacle=obstacle, s=s, l=l, dl_ds=dl_ds
     )
     c_l_plus = clearance_from_frenet_state(
         reference_line=reference_line,
@@ -414,6 +353,7 @@ def build_initial_heading_constraints(
     branch_name: str,
     body_sample_count: int,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Build a heading-aware convex seed constraint for one obstacle bypass branch."""
     if branch_name not in ("negative", "positive"):
         raise ValueError("branch_name must be 'negative' or 'positive'.")
     if minimum_clearance_m < 0.0:
@@ -423,19 +363,12 @@ def build_initial_heading_constraints(
 
     num_points = len(s_values)
     num_variables = 3 * num_points
-    frenet_obstacle = project_obstacle_to_frenet(
-        obstacle=obstacle,
-        reference_line=reference_line,
-    )
+    frenet_obstacle = project_obstacle_to_frenet(obstacle=obstacle, reference_line=reference_line)
     front_extent = vehicle_params.wheelbase_m + vehicle_params.front_overhang_m
     rear_extent = vehicle_params.rear_overhang_m
     half_width = vehicle_params.width_m / 2.0
     effective_radius = obstacle.radius_m + minimum_clearance_m
-    body_x_samples = np.linspace(
-        -rear_extent,
-        front_extent,
-        body_sample_count,
-    )
+    body_x_samples = np.linspace(-rear_extent, front_extent, body_sample_count)
     y_c = half_width if branch_name == "negative" else -half_width
 
     rows: list[np.ndarray] = []
@@ -449,9 +382,7 @@ def build_initial_heading_constraints(
             if abs(delta_s) >= effective_radius:
                 continue
 
-            circle_half_height = math.sqrt(
-                max(0.0, effective_radius ** 2 - delta_s ** 2)
-            )
+            circle_half_height = math.sqrt(max(0.0, effective_radius**2 - delta_s**2))
             row = np.zeros(num_variables, dtype=float)
             row[l_index(i, num_points)] = 1.0
             row[dl_index(i, num_points)] = float(x_c)
@@ -468,17 +399,9 @@ def build_initial_heading_constraints(
                 upper.append(np.inf)
 
     if not rows:
-        return (
-            np.zeros((0, num_variables), dtype=float),
-            np.zeros(0, dtype=float),
-            np.zeros(0, dtype=float),
-        )
+        return (np.zeros((0, num_variables), dtype=float), np.zeros(0, dtype=float), np.zeros(0, dtype=float))
 
-    return (
-        np.vstack(rows),
-        np.asarray(lower, dtype=float),
-        np.asarray(upper, dtype=float),
-    )
+    return (np.vstack(rows), np.asarray(lower, dtype=float), np.asarray(upper, dtype=float))
 
 
 def build_linearized_clearance_constraints(
@@ -495,6 +418,7 @@ def build_linearized_clearance_constraints(
     gradient_eps_dl: float,
     clearance_numerical_buffer_m: float,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Linearize exact rotated-footprint clearance around the current SCP nominal path."""
     if trust_l_m <= 0.0:
         raise ValueError("trust_l_m must be positive.")
     if trust_dl <= 0.0:
@@ -502,6 +426,8 @@ def build_linearized_clearance_constraints(
     if clearance_numerical_buffer_m < 0.0:
         raise ValueError("clearance_numerical_buffer_m must not be negative.")
 
+    # Exact rotated-footprint clearance is nonlinear in (l, l'). SCP linearizes it locally,
+    # while the trust region keeps each QP step inside the useful neighborhood of that linearization.
     target_clearance_m = minimum_clearance_m + clearance_numerical_buffer_m
     num_points = len(s_values)
     num_variables = 3 * num_points
@@ -533,10 +459,7 @@ def build_linearized_clearance_constraints(
         lower.append(float(nominal_dl[i] - trust_dl))
         upper.append(float(nominal_dl[i] + trust_dl))
 
-        possible_clearance_drop = (
-            abs(grad_l) * trust_l_m
-            + abs(grad_dl) * trust_dl
-        )
+        possible_clearance_drop = abs(grad_l) * trust_l_m + abs(grad_dl) * trust_dl
         if c0 - possible_clearance_drop > target_clearance_m:
             continue
 
@@ -552,21 +475,12 @@ def build_linearized_clearance_constraints(
         row = np.zeros(num_variables, dtype=float)
         row[l_index(i, num_points)] = grad_l
         row[dl_index(i, num_points)] = grad_dl
-        required_lower = (
-            target_clearance_m
-            - c0
-            + grad_l * nominal_l[i]
-            + grad_dl * nominal_dl[i]
-        )
+        required_lower = target_clearance_m - c0 + grad_l * nominal_l[i] + grad_dl * nominal_dl[i]
         rows.append(row)
         lower.append(float(required_lower))
         upper.append(np.inf)
 
-    return (
-        np.vstack(rows),
-        np.asarray(lower, dtype=float),
-        np.asarray(upper, dtype=float),
-    )
+    return (np.vstack(rows), np.asarray(lower, dtype=float), np.asarray(upper, dtype=float))
 
 
 def evaluate_exact_path(
@@ -579,25 +493,14 @@ def evaluate_exact_path(
     road_min_l: float,
     road_max_l: float,
 ) -> tuple[list[PathPoint], bool, bool, bool, bool, float, float]:
-    path = frenet_trajectory_to_path(
-        trajectory=trajectory,
-        reference_line=reference_line,
-    )
-    curvature_ok = is_curvature_feasible(
-        path=path,
-        max_curvature=max_curvature,
-    )
+    """Run the common exact physical validator and return its component results."""
+    path = frenet_trajectory_to_path(trajectory=trajectory, reference_line=reference_line)
+    curvature_ok = is_curvature_feasible(path=path, max_curvature=max_curvature)
     clearance_ok = is_obstacle_clearance_feasible(
-        path=path,
-        vehicle_params=vehicle_params,
-        obstacles=obstacles,
-        minimum_clearance_m=minimum_clearance_m,
+        path=path, vehicle_params=vehicle_params, obstacles=obstacles, minimum_clearance_m=minimum_clearance_m
     )
     road_ok = is_road_boundary_feasible(
-        trajectory=trajectory,
-        vehicle_params=vehicle_params,
-        min_l=road_min_l,
-        max_l=road_max_l,
+        trajectory=trajectory, vehicle_params=vehicle_params, min_l=road_min_l, max_l=road_max_l
     )
     exact_ok = is_physical_path_feasible(
         trajectory=trajectory,
@@ -612,11 +515,7 @@ def evaluate_exact_path(
 
     if obstacles:
         min_clearance_m = min(
-            obstacle_clearance(
-                path_point=path_point,
-                vehicle_params=vehicle_params,
-                obstacle=obstacle,
-            )
+            obstacle_clearance(path_point=path_point, vehicle_params=vehicle_params, obstacle=obstacle)
             for path_point in path
             for obstacle in obstacles
         )
@@ -624,15 +523,10 @@ def evaluate_exact_path(
         min_clearance_m = math.inf
 
     max_exact_curvature = max(abs(point.curvature) for point in path)
-    return (
-        path,
-        exact_ok,
-        curvature_ok,
-        clearance_ok,
-        road_ok,
-        min_clearance_m,
-        max_exact_curvature,
-    )
+    return (path, exact_ok, curvature_ok, clearance_ok, road_ok, min_clearance_m, max_exact_curvature)
+
+
+# Production planner orchestration
 
 
 def _canonical_objective(
@@ -648,6 +542,7 @@ def _canonical_objective(
     terminal_lateral_weight: float,
     terminal_first_derivative_weight: float,
 ) -> float:
+    """Evaluate the common objective used for fair Sampling/Optimization comparison."""
     weights = PathObjectiveWeights(
         lateral_weight=lateral_weight,
         first_derivative_weight=first_derivative_weight,
@@ -701,6 +596,7 @@ def _solve_explicit_branch(
     clearance_gradient_eps_dl: float,
     heading_constraint_body_sample_count: int,
 ) -> OptimizationPathResult:
+    """Solve one bypass branch: seed QP, exact validation, then SCP clearance refinement."""
     s_values = corridor.s_values
     num_points = len(s_values)
 
@@ -732,9 +628,7 @@ def _solve_explicit_branch(
 
     if obstacles:
         if len(obstacles) != 1:
-            raise ValueError(
-                "Sequential Optimization Planner currently supports at most one static obstacle."
-            )
+            raise ValueError("Sequential Optimization Planner currently supports at most one static obstacle.")
         if branch_name is None:
             raise ValueError("Obstacle planning requires a branch name.")
         initial_a, initial_lower, initial_upper = build_initial_heading_constraints(
@@ -763,26 +657,19 @@ def _solve_explicit_branch(
     )
 
     nominal_l, nominal_dl, _, nominal_trajectory = decode_explicit_solution(
-        s_values=s_values,
-        solution=initial_solution,
+        s_values=s_values, solution=initial_solution
     )
-    (
-        nominal_path,
-        exact_ok,
-        curvature_ok,
-        clearance_ok,
-        road_ok,
-        min_clearance_m,
-        max_exact_curvature,
-    ) = evaluate_exact_path(
-        reference_line=reference_line,
-        trajectory=nominal_trajectory,
-        vehicle_params=vehicle_params,
-        obstacles=obstacles,
-        max_curvature=max_curvature,
-        minimum_clearance_m=minimum_clearance_m,
-        road_min_l=road_min_l,
-        road_max_l=road_max_l,
+    nominal_path, exact_ok, curvature_ok, clearance_ok, road_ok, min_clearance_m, max_exact_curvature = (
+        evaluate_exact_path(
+            reference_line=reference_line,
+            trajectory=nominal_trajectory,
+            vehicle_params=vehicle_params,
+            obstacles=obstacles,
+            max_curvature=max_curvature,
+            minimum_clearance_m=minimum_clearance_m,
+            road_min_l=road_min_l,
+            road_max_l=road_max_l,
+        )
     )
 
     if exact_ok:
@@ -851,19 +738,8 @@ def _solve_explicit_branch(
             eps_abs=osqp_eps_abs,
             eps_rel=osqp_eps_rel,
         )
-        new_l, new_dl, _, new_trajectory = decode_explicit_solution(
-            s_values=s_values,
-            solution=new_solution,
-        )
-        (
-            new_path,
-            exact_ok,
-            curvature_ok,
-            _,
-            road_ok,
-            min_clearance_m,
-            max_exact_curvature,
-        ) = evaluate_exact_path(
+        new_l, new_dl, _, new_trajectory = decode_explicit_solution(s_values=s_values, solution=new_solution)
+        new_path, exact_ok, curvature_ok, _, road_ok, min_clearance_m, max_exact_curvature = evaluate_exact_path(
             reference_line=reference_line,
             trajectory=new_trajectory,
             vehicle_params=vehicle_params,
@@ -876,13 +752,9 @@ def _solve_explicit_branch(
 
         iteration_count = iteration
         if not curvature_ok:
-            raise RuntimeError(
-                "Sequential refinement produced an exact-curvature violation."
-            )
+            raise RuntimeError("Sequential refinement produced an exact-curvature violation.")
         if not road_ok:
-            raise RuntimeError(
-                "Sequential refinement produced a road-boundary violation."
-            )
+            raise RuntimeError("Sequential refinement produced a road-boundary violation.")
 
         nominal_l = new_l
         nominal_dl = new_dl
@@ -895,9 +767,7 @@ def _solve_explicit_branch(
             break
 
     if final_trajectory is None or final_path is None or final_lateral is None:
-        raise RuntimeError(
-            "Maximum sequential clearance iterations reached without an exact-feasible path."
-        )
+        raise RuntimeError("Maximum sequential clearance iterations reached without an exact-feasible path.")
 
     objective_value = _canonical_objective(
         trajectory=final_trajectory,
@@ -969,27 +839,22 @@ def plan_matched_multi_corridor_path(
     if len(corridors) == 0:
         raise ValueError("At least one corridor is required.")
     if len(obstacles) > 1:
-        raise ValueError(
-            "Optimization Planner currently supports at most one static obstacle."
-        )
+        raise ValueError("Optimization Planner currently supports at most one static obstacle.")
 
     reference_s_values = corridors[0].s_values
     feasible_results: list[OptimizationPathResult] = []
     failure_reasons: list[str] = []
 
     for corridor_index, corridor in enumerate(corridors):
-        if (
-            corridor.s_values.shape != reference_s_values.shape
-            or not np.allclose(corridor.s_values, reference_s_values)
+        if corridor.s_values.shape != reference_s_values.shape or not np.allclose(
+            corridor.s_values, reference_s_values
         ):
             raise ValueError("All corridors must share the same s_values.")
         if not is_corridor_feasible(corridor):
             failure_reasons.append(f"corridor {corridor_index}: infeasible")
             continue
 
-        branch_names: tuple[str | None, ...] = (
-            ("negative", "positive") if obstacles else (None,)
-        )
+        branch_names: tuple[str | None, ...] = ("negative", "positive") if obstacles else (None,)
 
         for branch_name in branch_names:
             try:
@@ -1028,19 +893,16 @@ def plan_matched_multi_corridor_path(
                     heading_constraint_body_sample_count=heading_constraint_body_sample_count,
                 )
             except RuntimeError as error:
-                failure_reasons.append(
-                    f"corridor {corridor_index}, branch {branch_name}: {error}"
-                )
+                failure_reasons.append(f"corridor {corridor_index}, branch {branch_name}: {error}")
                 continue
             feasible_results.append(result)
 
     if not feasible_results:
         details = "; ".join(failure_reasons) if failure_reasons else "no candidate generated"
-        raise RuntimeError(
-            "No physically feasible optimization path found: " + details
-        )
+        raise RuntimeError("No physically feasible optimization path found: " + details)
 
     return min(feasible_results, key=lambda result: result.objective_value)
+
 
 # -----------------------------------------------------------------------------
 # Legacy public API compatibility
@@ -1078,12 +940,7 @@ def solve_matched_optimized_path(
     # Legacy argument retained only for API compatibility.
     _ = max_second_derivative_abs
 
-    effective_max_curvature = (
-        DEFAULT_VEHICLE_CONFIG
-        .max_curvature_per_m
-        if max_curvature is None
-        else max_curvature
-    )
+    effective_max_curvature = DEFAULT_VEHICLE_CONFIG.max_curvature_per_m if max_curvature is None else max_curvature
 
     qp_objective = build_explicit_qp_objective(
         num_points=len(s_values),
@@ -1119,14 +976,8 @@ def solve_matched_optimized_path(
         eps_abs=osqp_eps_abs,
         eps_rel=osqp_eps_rel,
     )
-    lateral, _, _, trajectory = decode_explicit_solution(
-        s_values=s_values,
-        solution=solution,
-    )
-    path = frenet_trajectory_to_path(
-        trajectory=trajectory,
-        reference_line=reference_line,
-    )
+    lateral, _, _, trajectory = decode_explicit_solution(s_values=s_values, solution=solution)
+    path = frenet_trajectory_to_path(trajectory=trajectory, reference_line=reference_line)
     objective_value = _canonical_objective(
         trajectory=trajectory,
         resolution_m=resolution_m,
@@ -1141,10 +992,7 @@ def solve_matched_optimized_path(
         terminal_first_derivative_weight=terminal_first_derivative_weight,
     )
     return OptimizationPathResult(
-        lateral_solution=lateral,
-        trajectory=trajectory,
-        path=path,
-        objective_value=objective_value,
+        lateral_solution=lateral, trajectory=trajectory, path=path, objective_value=objective_value
     )
 
 
@@ -1184,9 +1032,7 @@ def solve_optimized_path(
         third_derivative_weight=third_derivative_weight,
         terminal_lateral_weight=0.0,
         terminal_first_derivative_weight=0.0,
-        max_second_derivative_abs=(
-            DEFAULT_OPTIMIZATION_PLANNER_CONFIG.max_second_derivative_abs
-        ),
+        max_second_derivative_abs=(DEFAULT_OPTIMIZATION_PLANNER_CONFIG.max_second_derivative_abs),
         osqp_verbose=osqp_verbose,
         osqp_eps_abs=osqp_eps_abs,
         osqp_eps_rel=osqp_eps_rel,
@@ -1212,9 +1058,7 @@ def validate_optimization_result_physical(
         min_l=road_min_l,
         max_l=road_max_l,
     ):
-        raise RuntimeError(
-            "Optimization result failed exact physical validation."
-        )
+        raise RuntimeError("Optimization result failed exact physical validation.")
     return result
 
 

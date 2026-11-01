@@ -345,7 +345,7 @@ It does not yet enforce exact rotated-corner road containment.
 Run the development-only Optimization regression:
 
 ```bash
-python -m scripts.planning.validate_planner_redesign_development
+python -m scripts.planning.validation.validate_planner_redesign_development
 ```
 
 Current result:
@@ -380,8 +380,8 @@ outputs/final_planning_control/
 Useful figure commands:
 
 ```bash
-python -m scripts.planning.build_final_planner_summary_figure
-python -m scripts.planning.build_final_planner_figures
+python -m scripts.planning.evaluation.build_planner_summary_figure
+python -m scripts.planning.evaluation.build_planner_scenario_figures
 python -m scripts.mpc.build_final_planning_control_figures
 ```
 
@@ -462,19 +462,19 @@ Activate on Windows PowerShell:
 Development Optimization regression:
 
 ```bash
-python -m scripts.planning.validate_planner_redesign_development
+python -m scripts.planning.validation.validate_planner_redesign_development
 ```
 
 Planner-only summary figure from frozen CSV:
 
 ```bash
-python -m scripts.planning.build_final_planner_summary_figure
+python -m scripts.planning.evaluation.build_planner_summary_figure
 ```
 
 Rebuild fixed-color planner scenario figures:
 
 ```bash
-python -m scripts.planning.build_final_planner_figures
+python -m scripts.planning.evaluation.build_planner_scenario_figures
 ```
 
 Run final Planning & Control benchmark:
