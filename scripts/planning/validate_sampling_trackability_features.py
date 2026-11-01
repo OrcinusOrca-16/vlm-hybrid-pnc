@@ -5,7 +5,6 @@ from dataclasses import replace
 from scripts.planning.validate_sampling_trackability_development import arguments
 from src.benchmark.sampling_adapter import run_sampling_benchmark_adapter
 from src.benchmark.tuning_scenario_suite import build_development_tuning_scenarios
-from src.config.planning import DEFAULT_SAMPLING_PLANNER_CONFIG as CONFIG
 from src.config.vehicle import DEFAULT_VEHICLE_CONFIG as VEHICLE
 from src.control.path_tracking import compute_constant_safe_speed
 from src.planning.frenet import vehicle_state_to_frenet
@@ -30,14 +29,24 @@ def main():
     assert abs(trajectory.points[-1].l)<1e-10
     assert abs(trajectory.points[-1].dl_ds)<1e-10
     assert abs(trajectory.points[-1].d2l_ds2)<1e-10
-    assert len(generate_returning_frenet_candidates(state.s,state.l,state.dl_ds,state.d2l_ds2))==108
+
+    # Production defaults remain the lightweight 45-candidate geometric planner.
+    assert len(generate_returning_frenet_candidates(state.s,state.l,state.dl_ds,state.d2l_ds2))==45
+
+    # The larger trackability-aware design remains available as an explicit experiment.
+    experimental=generate_returning_frenet_candidates(state.s,state.l,state.dl_ds,state.d2l_ds2,
+                bypass_lengths=(6.,10.,14.,18.),junction_dl_ds_values=(-.05,0.,.05))
+    assert len(experimental)==108
+
     kwargs=arguments(s)
-    baseline=run_sampling_benchmark_adapter(**kwargs, trackability_weight=0.,junction_dl_ds_values=(0.,),
+    baseline=run_sampling_benchmark_adapter(**kwargs,trackability_weight=0.,junction_dl_ds_values=(0.,),
                 bypass_lengths=(6.,10.,14.,18.,22.))
-    tuned=run_sampling_benchmark_adapter(**kwargs)
+    tuned=run_sampling_benchmark_adapter(**kwargs,trackability_weight=4.,junction_dl_ds_values=(-.05,0.,.05),
+                bypass_lengths=(6.,10.,14.,18.))
     assert baseline.success and tuned.success
     assert math.isclose(safe(baseline.path,s),.8972302340401858,abs_tol=1e-8)
     assert safe(tuned.path,s)>safe(baseline.path,s)
+
     # The canonical metric must exclude the speed preference.
     target=next(p for p in tuned.trajectory.points if math.isclose(p.s,state.s+6.))
     assert math.isclose(target.dl_ds,-.05,abs_tol=1e-9)
@@ -50,7 +59,7 @@ def main():
             generate_returning_frenet_candidates(state.s,state.l,state.dl_ds,state.d2l_ds2,junction_dl_ds_values=slopes)
         except ValueError:pass
         else:raise AssertionError('Invalid junction sampling accepted')
-    print('Junction continuity, terminal state, candidate budget, disabled baseline, soft speed preference and zero-speed integration passed.')
+    print('Production baseline plus explicit trackability experiment invariants passed.')
 
 
 if __name__=='__main__':main()
