@@ -53,8 +53,12 @@ class SamplingPlannerConfig:
         10.0,
         14.0,
         18.0,
-        22.0,
     )
+
+    # DEVELOPMENT study: wider slopes selected paths with sampled-clearance
+    # aliasing; this small symmetric set passed 0.05 m diagnostic revalidation.
+    returning_junction_dl_ds_values: tuple[float, ...] = (-0.05, 0.0, 0.05)
+    trackability_weight: float = 4.0
 
     returning_total_length_m: float = 28.0
 

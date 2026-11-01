@@ -1,3 +1,7 @@
+"""Legacy geometric-only, zero-junction tuning reproduction.
+Use run_sampling_development_study for the joint trackability study.
+Explicit overrides below keep historical candidate counts and pools consistent.
+"""
 from __future__ import annotations
 
 import argparse
@@ -1000,6 +1004,8 @@ def run_one_scenario(
 
     result = (
         run_sampling_benchmark_adapter(
+            junction_dl_ds_values=(0.0,),
+            trackability_weight=0.0,
             reference_line=(
                 scenario.reference_line
             ),
@@ -1809,6 +1815,7 @@ def build_candidate_pool(
 
     trajectories = (
         generate_returning_frenet_candidates_from_vehicle_state(
+            junction_dl_ds_values=(0.0,),
             vehicle_state=(
                 scenario.vehicle_state
             ),

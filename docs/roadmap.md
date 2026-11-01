@@ -461,6 +461,7 @@ Phase 1 MPC 保留为 baseline。下一步将当前 spatial planned path 接入 
 - [ ] MPC feedback correction
 - [ ] 将 spatial path 配置为可跟踪 trajectory / speed profile
 - [ ] curved-path tracking validation
+- [x] DEVELOPMENT Sampling trackability preference 与参数提案；22/26，成功路径经 0.05 m 诊断复核；[报告](sampling_trackability_development.md)。最终参数冻结及 held-out run 留待用户审阅。
 - [ ] Sampling path + common MPC
 - [ ] Optimization path + common MPC
 - [ ] 检查 planner curvature 与 MPC steering constraint 一致性

@@ -1,3 +1,5 @@
+import math
+
 from src.common.types import (
     FrenetTrajectory,
     FrenetTrajectoryPoint,
@@ -82,6 +84,7 @@ def generate_returning_frenet_candidate(
         DEFAULT_SAMPLING_PLANNER_CONFIG
         .resolution_m
     ),
+    junction_dl_ds: float = 0.0,
 ) -> FrenetTrajectory:
     """Generate a two-stage candidate that bypasses and returns laterally."""
 
@@ -95,12 +98,15 @@ def generate_returning_frenet_candidate(
             "return_length must be positive."
         )
 
+    if not math.isfinite(junction_dl_ds):
+        raise ValueError("junction_dl_ds must be finite.")
+
     bypass_curve = QuinticPolynomial(
         start_l=start_l,
         start_dl_ds=start_dl_ds,
         start_d2l_ds2=start_d2l_ds2,
         end_l=bypass_l,
-        end_dl_ds=0.0,
+        end_dl_ds=junction_dl_ds,
         end_d2l_ds2=0.0,
         length=bypass_length,
     )
@@ -186,6 +192,9 @@ def generate_returning_frenet_candidates(
         DEFAULT_SAMPLING_PLANNER_CONFIG
         .resolution_m
     ),
+    junction_dl_ds_values: tuple[float, ...] = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG.returning_junction_dl_ds_values
+    ),
 ) -> list[FrenetTrajectory]:
     """Generate multiple two-stage bypass-and-return candidates."""
 
@@ -206,6 +215,9 @@ def generate_returning_frenet_candidates(
 
     candidates = []
 
+    if not junction_dl_ds_values or not all(math.isfinite(v) for v in junction_dl_ds_values):
+        raise ValueError("junction_dl_ds_values must contain finite slopes.")
+
     for bypass_length in bypass_lengths:
         return_length = (
             total_length
@@ -220,25 +232,27 @@ def generate_returning_frenet_candidates(
         for bypass_l in bypass_lateral_positions:
             for final_l in final_lateral_positions:
                 for final_dl_ds in final_dl_ds_values:
-                    candidate = (
-                        generate_returning_frenet_candidate(
-                            start_s=start_s,
-                            start_l=start_l,
-                            start_dl_ds=start_dl_ds,
-                            start_d2l_ds2=start_d2l_ds2,
-                            bypass_l=bypass_l,
-                            bypass_length=bypass_length,
-                            return_length=return_length,
-                            final_l=final_l,
-                            final_dl_ds=final_dl_ds,
-                            final_d2l_ds2=final_d2l_ds2,
-                            resolution=resolution,
+                    for junction_dl_ds in junction_dl_ds_values:
+                        candidate = (
+                            generate_returning_frenet_candidate(
+                                start_s=start_s,
+                                start_l=start_l,
+                                start_dl_ds=start_dl_ds,
+                                start_d2l_ds2=start_d2l_ds2,
+                                bypass_l=bypass_l,
+                                bypass_length=bypass_length,
+                                return_length=return_length,
+                                final_l=final_l,
+                                final_dl_ds=final_dl_ds,
+                                final_d2l_ds2=final_d2l_ds2,
+                                resolution=resolution,
+                                junction_dl_ds=junction_dl_ds,
+                            )
                         )
-                    )
 
-                    candidates.append(
-                        candidate
-                    )
+                        candidates.append(
+                            candidate
+                        )
 
     return candidates
 
@@ -286,6 +300,9 @@ def generate_returning_frenet_candidates_from_vehicle_state(
         DEFAULT_SAMPLING_PLANNER_CONFIG
         .resolution_m
     ),
+    junction_dl_ds_values: tuple[float, ...] = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG.returning_junction_dl_ds_values
+    ),
 ) -> list[FrenetTrajectory]:
     """Generate bypass-and-return candidates from the ego vehicle state."""
 
@@ -306,6 +323,7 @@ def generate_returning_frenet_candidates_from_vehicle_state(
         final_dl_ds_values=final_dl_ds_values,
         final_d2l_ds2=final_d2l_ds2,
         resolution=resolution,
+        junction_dl_ds_values=junction_dl_ds_values,
     )
 
 

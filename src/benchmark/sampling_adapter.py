@@ -1,3 +1,4 @@
+import math
 from time import perf_counter
 
 from src.benchmark.planner_benchmark import (
@@ -11,6 +12,8 @@ from src.common.types import (
 from src.config.planning import (
     DEFAULT_SAMPLING_PLANNER_CONFIG,
 )
+from src.config.vehicle import DEFAULT_VEHICLE_CONFIG
+from src.control.path_tracking import compute_constant_safe_speed
 from src.planning.frenet import (
     frenet_trajectory_to_path,
 )
@@ -31,6 +34,7 @@ from src.planning.sampling_planner import (
     generate_returning_frenet_candidates_from_vehicle_state,
 )
 from src.planning.soft_cost import (
+    normalized_speed_deficit_cost,
     select_best_matched_candidate,
 )
 
@@ -97,10 +101,21 @@ def run_sampling_benchmark_adapter(
         DEFAULT_SAMPLING_PLANNER_CONFIG
         .matched_objective_weights
     ),
+    junction_dl_ds_values: tuple[float, ...] = (
+        DEFAULT_SAMPLING_PLANNER_CONFIG.returning_junction_dl_ds_values
+    ),
+    trackability_weight: float = DEFAULT_SAMPLING_PLANNER_CONFIG.trackability_weight,
+    max_steering_angle: float = DEFAULT_VEHICLE_CONFIG.max_steering_angle_rad,
+    max_steering_rate: float = DEFAULT_VEHICLE_CONFIG.max_steering_rate_radps,
 ) -> PlannerBenchmarkResult:
     """Run the matched Sampling Planner through the benchmark interface."""
 
     start_time = perf_counter()
+
+    if not math.isfinite(trackability_weight) or trackability_weight < 0.0:
+        raise ValueError("trackability_weight must be finite and nonnegative.")
+    if not all(math.isfinite(v) and v > 0.0 for v in (max_steering_angle, max_steering_rate)):
+        raise ValueError("Steering limits must be finite and positive.")
 
     trajectories = (
         generate_returning_frenet_candidates_from_vehicle_state(
@@ -113,6 +128,7 @@ def run_sampling_benchmark_adapter(
             final_dl_ds_values=final_dl_ds_values,
             final_d2l_ds2=final_d2l_ds2,
             resolution=resolution_m,
+            junction_dl_ds_values=junction_dl_ds_values,
         )
     )
 
@@ -188,6 +204,21 @@ def run_sampling_benchmark_adapter(
             ),
         )
 
+    def trackability_preference(path):
+        # Legacy callers may supply curvature bounds above actuator capability.
+        # Such paths receive the maximum speed-deficit preference, without
+        # changing the common physical acceptance contract.
+        if any(abs(math.atan(vehicle_params.wheelbase_m*p.curvature)) > max_steering_angle+1e-9 for p in path):
+            return trackability_weight
+        safe_speed = compute_constant_safe_speed(
+            path=path,
+            target_speed_mps=vehicle_state.speed,
+            wheelbase_m=vehicle_params.wheelbase_m,
+            max_steering_angle=max_steering_angle,
+            max_steering_rate=max_steering_rate,
+        )
+        return trackability_weight * normalized_speed_deficit_cost(safe_speed, vehicle_state.speed)
+
     best_candidate = (
         select_best_matched_candidate(
             feasible_candidates=feasible_candidates,
@@ -221,6 +252,7 @@ def run_sampling_benchmark_adapter(
                 planner_objective_weights
                 .terminal_first_derivative_weight
             ),
+            path_preference_cost=trackability_preference if trackability_weight else None,
         )
     )
 

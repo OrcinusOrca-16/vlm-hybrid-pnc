@@ -28,6 +28,7 @@ def validate_wrapper_equivalence() -> None:
         start_d2l_ds2=0.0,
         bypass_lateral_positions=(-1.0,),
         bypass_lengths=(10.0,),
+        junction_dl_ds_values=(0.0,),  # Isolate the historical terminal-cost fixture.
         total_length=28.0,
         final_lateral_positions=(0.5,),
         final_dl_ds_values=(0.05,),
@@ -109,6 +110,7 @@ def validate_terminal_cost_changes_selection() -> None:
         start_d2l_ds2=0.0,
         bypass_lateral_positions=(-1.0,),
         bypass_lengths=(10.0,),
+        junction_dl_ds_values=(0.0,),  # Isolate the historical terminal-cost fixture.
         total_length=28.0,
         final_lateral_positions=(
             0.0,

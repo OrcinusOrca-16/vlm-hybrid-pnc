@@ -142,6 +142,8 @@ def reproduce_production_winner(scenario) -> CandidateMetadata:
 
     winner = min(candidates, key=lambda candidate: candidate.selection_objective)
     adapter_result = run_sampling_benchmark_adapter(
+        junction_dl_ds_values=(0.0,),
+        trackability_weight=0.0,
         reference_line=scenario.reference_line,
         vehicle_state=scenario.vehicle_state,
         vehicle_params=scenario.vehicle_params,

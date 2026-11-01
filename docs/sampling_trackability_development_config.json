@@ -1,0 +1,287 @@
+{
+  "status": "recommended DEVELOPMENT configuration; awaiting user review before final evaluation",
+  "starting_commit": "159d72baccf124e85f5642cdff0ca52fd1201d25",
+  "lateral_positions": [
+    -2.0,
+    -1.5,
+    -1.0,
+    -0.5,
+    0.0,
+    0.5,
+    1.0,
+    1.5,
+    2.0
+  ],
+  "bypass_lengths": [
+    6.0,
+    10.0,
+    14.0,
+    18.0
+  ],
+  "junction_slopes": [
+    -0.05,
+    0.0,
+    0.05
+  ],
+  "junction_second_derivative": 0.0,
+  "terminal_state": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "trackability_weight": 4.0,
+  "geometric_weights_unchanged": true,
+  "hard_constraints_unchanged": true,
+  "development_success": 22,
+  "development_total": 26,
+  "failures": [
+    "obstacle_longitudinal_16.00",
+    "obstacle_longitudinal_36.00",
+    "road_half_width_1.75",
+    "road_half_width_1.50"
+  ],
+  "selected": {
+    "tuning_lateral_recovery": {
+      "params": [
+        0.0,
+        10.0,
+        -0.05,
+        0.0
+      ],
+      "speed": 5.0,
+      "geo": 0.11729787480596168,
+      "clearance": null
+    },
+    "tuning_obstacle_lateral_-0.75": {
+      "params": [
+        1.5,
+        14.0,
+        0.0,
+        0.0
+      ],
+      "speed": 5.0,
+      "geo": 0.8908888533894129,
+      "clearance": 0.8125356162230064
+    },
+    "tuning_obstacle_lateral_+0.75": {
+      "params": [
+        -1.5,
+        14.0,
+        0.0,
+        0.0
+      ],
+      "speed": 5.0,
+      "geo": 0.8908888533894129,
+      "clearance": 0.8125356162230064
+    },
+    "tuning_obstacle_longitudinal_18.00": {
+      "params": [
+        -1.0,
+        6.0,
+        -0.05,
+        0.0
+      ],
+      "speed": 1.0068211164927054,
+      "geo": 0.5572189220492548,
+      "clearance": 0.5975044785657491
+    },
+    "tuning_obstacle_longitudinal_34.00": {
+      "params": [
+        -1.5,
+        18.0,
+        0.0,
+        0.0
+      ],
+      "speed": 2.4155825987434003,
+      "geo": 0.9012001369375866,
+      "clearance": 0.5511801380269523
+    },
+    "tuning_road_half_width_1.90": {
+      "params": [
+        -1.0,
+        14.0,
+        0.0,
+        0.0
+      ],
+      "speed": 5.0,
+      "geo": 0.39595060150640543,
+      "clearance": 0.5757162500007067
+    },
+    "tuning_curved_obstacle": {
+      "params": [
+        1.5,
+        14.0,
+        0.0,
+        0.0
+      ],
+      "speed": 5.0,
+      "geo": 0.8908875082068659,
+      "clearance": 0.8499999997650054
+    },
+    "obstacle_lateral_-1.50": {
+      "params": [
+        0.5,
+        14.0,
+        0.0,
+        0.0
+      ],
+      "speed": 5.0,
+      "geo": 0.09898765037660136,
+      "clearance": 0.588111352777088
+    },
+    "obstacle_lateral_-1.00": {
+      "params": [
+        1.0,
+        14.0,
+        0.0,
+        0.0
+      ],
+      "speed": 5.0,
+      "geo": 0.39595060150640543,
+      "clearance": 0.5757162500007067
+    },
+    "obstacle_lateral_-0.50": {
+      "params": [
+        1.5,
+        14.0,
+        0.0,
+        0.0
+      ],
+      "speed": 5.0,
+      "geo": 0.8908888533894129,
+      "clearance": 0.5628254466048803
+    },
+    "obstacle_lateral_+0.00": {
+      "params": [
+        -2.0,
+        14.0,
+        0.0,
+        0.0
+      ],
+      "speed": 4.733796173480922,
+      "geo": 1.5838024060256217,
+      "clearance": 0.5494508105146307
+    },
+    "obstacle_lateral_+0.50": {
+      "params": [
+        -1.5,
+        14.0,
+        0.0,
+        0.0
+      ],
+      "speed": 5.0,
+      "geo": 0.8908888533894129,
+      "clearance": 0.5628254466048803
+    },
+    "obstacle_lateral_+1.00": {
+      "params": [
+        -1.0,
+        14.0,
+        0.0,
+        0.0
+      ],
+      "speed": 5.0,
+      "geo": 0.39595060150640543,
+      "clearance": 0.5757162500007067
+    },
+    "obstacle_lateral_+1.50": {
+      "params": [
+        -0.5,
+        14.0,
+        0.0,
+        0.0
+      ],
+      "speed": 5.0,
+      "geo": 0.09898765037660136,
+      "clearance": 0.588111352777088
+    },
+    "obstacle_longitudinal_20.00": {
+      "params": [
+        -1.0,
+        10.0,
+        0.0,
+        0.0
+      ],
+      "speed": 3.6158689418342713,
+      "geo": 0.4005074137564726,
+      "clearance": 0.5363774800023471
+    },
+    "obstacle_longitudinal_24.00": {
+      "params": [
+        -1.0,
+        14.0,
+        0.0,
+        0.0
+      ],
+      "speed": 5.0,
+      "geo": 0.39595060150640543,
+      "clearance": 0.5757162500007067
+    },
+    "obstacle_longitudinal_28.00": {
+      "params": [
+        -1.0,
+        14.0,
+        0.0,
+        0.0
+      ],
+      "speed": 5.0,
+      "geo": 0.39595060150640543,
+      "clearance": 0.5757165061829941
+    },
+    "obstacle_longitudinal_32.00": {
+      "params": [
+        -1.0,
+        18.0,
+        0.0,
+        0.0
+      ],
+      "speed": 3.6158689418342838,
+      "geo": 0.4005333941944827,
+      "clearance": 0.5363780908793552
+    },
+    "road_half_width_3.00": {
+      "params": [
+        -1.0,
+        14.0,
+        0.0,
+        0.0
+      ],
+      "speed": 5.0,
+      "geo": 0.39595060150640543,
+      "clearance": 0.5757162500007067
+    },
+    "road_half_width_2.50": {
+      "params": [
+        -1.0,
+        14.0,
+        0.0,
+        0.0
+      ],
+      "speed": 5.0,
+      "geo": 0.39595060150640543,
+      "clearance": 0.5757162500007067
+    },
+    "road_half_width_2.25": {
+      "params": [
+        -1.0,
+        14.0,
+        0.0,
+        0.0
+      ],
+      "speed": 5.0,
+      "geo": 0.39595060150640543,
+      "clearance": 0.5757162500007067
+    },
+    "road_half_width_2.00": {
+      "params": [
+        -1.0,
+        14.0,
+        0.0,
+        0.0
+      ],
+      "speed": 5.0,
+      "geo": 0.39595060150640543,
+      "clearance": 0.5757162500007067
+    }
+  }
+}

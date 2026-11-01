@@ -1,3 +1,6 @@
+import math
+from typing import Callable
+
 import numpy as np
 
 from src.common.types import (
@@ -186,12 +189,16 @@ def select_best_matched_candidate(
     third_derivative_weight: float,
     terminal_lateral_weight: float,
     terminal_first_derivative_weight: float,
+    path_preference_cost: Callable[[list[PathPoint]], float] | None = None,
 ) -> tuple[
     FrenetTrajectory,
     list[PathPoint],
     float,
 ] | None:
-    """Select the minimum-cost candidate using the matched objective."""
+    """Select by geometry plus an optional planner-specific soft preference.
+
+    The canonical evaluator remains geometric and independent of this callback.
+    """
 
     if not feasible_candidates:
         return None
@@ -219,6 +226,12 @@ def select_best_matched_candidate(
             ),
         )
 
+        if path_preference_cost is not None:
+            preference = path_preference_cost(path)
+            if not math.isfinite(preference) or preference < 0.0:
+                raise ValueError("Path preference cost must be finite and nonnegative.")
+            cost += preference
+
         if (
             best_cost is None
             or cost < best_cost
@@ -232,3 +245,12 @@ def select_best_matched_candidate(
         best_path,
         best_cost,
     )
+
+
+def normalized_speed_deficit_cost(safe_speed_mps: float, target_speed_mps: float) -> float:
+    """Soft speed preference; steering-rate feasibility is not a hard rejection."""
+    if not all(math.isfinite(v) and v >= 0.0 for v in (safe_speed_mps, target_speed_mps)):
+        raise ValueError("Speeds must be finite and nonnegative.")
+    if target_speed_mps == 0.0:
+        return 0.0
+    return (max(0.0, target_speed_mps-safe_speed_mps)/target_speed_mps)**2

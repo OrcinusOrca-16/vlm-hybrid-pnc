@@ -7,3 +7,6 @@ venv/
 *.log
 # Intermediate planner tuning outputs
 outputs/tuning/
+# Cached DEVELOPMENT-only Sampling trackability experiments
+outputs/sampling_development_study/
+outputs/sampling_development_checks.json

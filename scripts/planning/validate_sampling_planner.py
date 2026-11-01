@@ -240,6 +240,7 @@ def run_returning_obstacle_case() -> None:
         ),
         total_length=28.0,
         final_lateral_positions=(0.0,),
+        junction_dl_ds_values=(0.0,),  # Historical zero-slope fixture.
         resolution=0.5,
     )
 
