@@ -464,7 +464,7 @@ Phase 1 MPC 保留为 baseline。当前 spatial planned path 接入 common curva
 - [x] Sampling path + common MPC
 - [x] Optimization path + common MPC
 - [x] 检查 planner curvature 与 MPC steering constraint 一致性
-- [x] 系统搜索 horizon / Q / R（仅在需要时）
+- [x] 评估 horizon / Q / R tuning 必要性：当前验证无系统搜索必要
 - [ ] Future: planner-level steering-rate / curvature-rate feasibility at design speed
 
 ---
@@ -473,15 +473,22 @@ Phase 1 MPC 保留为 baseline。当前 spatial planned path 接入 common curva
 
 使用统一 controller 比较两种 Planner 的闭环系统表现。
 
-- [ ] Sampling Planner + common MPC
-- [ ] Optimization Planner + common MPC
-- [ ] lateral tracking error
-- [ ] heading error
-- [ ] steering / steering rate
-- [ ] trajectory quality
-- [ ] planning computation time
-- [ ] controller feasibility
-- [ ] failure cases
+- [x] Sampling Planner + common MPC
+- [x] Optimization Planner + common MPC
+- [x] lateral tracking error
+- [x] heading error
+- [x] steering / steering rate
+- [x] trajectory quality
+- [x] planning computation time
+- [x] controller feasibility
+- [x] failure cases
+
+Final frozen 9-scenario result:
+
+- Sampling Planner: `8 / 9` planning success; all `8 / 8` successful plans tracked successfully.
+- Optimization Planner: `9 / 9` planning success and closed-loop tracking success.
+- Common-success comparisons use the same controller and an auxiliary common-speed diagnostic.
+- Final interpretation and limitations are documented in `docs/final_planning_control_findings.md`.
 
 ---
 
@@ -514,7 +521,7 @@ VLM 只负责高层 `KEEP_LANE / SLOW_DOWN / STOP / CAUTIOUS` 等 `BehaviorComma
 - [ ] README 重构
 - [ ] 系统架构图
 - [ ] Planner benchmark figure
-- [ ] Planning–Control integration results
-- [ ] failure-case documentation
+- [x] Planning–Control integration results
+- [x] failure-case documentation
 - [ ] interview / presentation material
 - [ ] GIF / demo
