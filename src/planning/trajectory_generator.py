@@ -1,15 +1,9 @@
 import math
 
-from src.common.types import (
-    BehaviorCommand,
-    TrajectoryPoint,
-    VehicleState,
-)
+from src.common.types import BehaviorCommand, TrajectoryPoint, VehicleState
 
-def calculate_stopping_distance(
-    speed_mps: float,
-    decel_mps2: float,
-) -> float:
+
+def calculate_stopping_distance(speed_mps: float, decel_mps2: float) -> float:
     """Calculate braking distance under constant deceleration."""
 
     if speed_mps < 0.0:
@@ -19,6 +13,7 @@ def calculate_stopping_distance(
         raise ValueError("decel_mps2 must be positive.")
 
     return speed_mps**2 / (2.0 * decel_mps2)
+
 
 def generate_straight_trajectory(
     ego_state: VehicleState,
@@ -56,28 +51,14 @@ def generate_straight_trajectory(
     for i in range(num_steps):
         time = i * dt
 
-        trajectory.append(
-            TrajectoryPoint(
-                x=x,
-                y=y,
-                yaw=ego_state.yaw,
-                speed=speed,
-                time=time,
-            )
-        )
+        trajectory.append(TrajectoryPoint(x=x, y=y, yaw=ego_state.yaw, speed=speed, time=time))
 
         old_speed = speed
         if speed < command.target_speed_mps:
-            speed = min(
-                speed + max_accel_mps2 * dt,
-                command.target_speed_mps,
-            )
+            speed = min(speed + max_accel_mps2 * dt, command.target_speed_mps)
 
         elif speed > command.target_speed_mps:
-            speed = max(
-                speed - max_decel_mps2 * dt,
-                command.target_speed_mps,
-            )
+            speed = max(speed - max_decel_mps2 * dt, command.target_speed_mps)
 
         average_speed = (old_speed + speed) / 2.0
 

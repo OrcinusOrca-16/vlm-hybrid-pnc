@@ -108,9 +108,9 @@ They intentionally reference the current project structure, including:
 - `docs/roadmap.md`  
 - `src/config/planning.py`  
 - `src/benchmark/tuning_scenario_suite.py`  
-- `scripts/planning/run_sampling_tuning.py`  
-- `scripts/planning/run_optimization_tuning.py`  
-- `scripts/planning/run_optimization_tuning_reproduction.py`  
+- `scripts/planning/development/run_sampling_tuning.py`  
+- `scripts/planning/development/run_optimization_tuning.py`  
+- `scripts/planning/development/run_optimization_tuning_reproduction.py`  
 - canonical/discrete/stress/runtime benchmark scripts
 
 The agent must still read the current versions of these files at execution time. Historical tuning conclusions are hints and evidence, not immutable rules.

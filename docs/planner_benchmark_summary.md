@@ -241,7 +241,7 @@ Therefore the accurate project wording is:
 
 A dedicated development-only Optimization regression script was added:
 
-`scripts/planning/validate_planner_redesign_development.py`
+`scripts/planning/validation/validate_planner_redesign_development.py`
 
 It does not build or execute the final evaluation scenarios.
 
@@ -582,11 +582,11 @@ The central lesson is:
 
 Final evaluation runner:
 
-`scripts/planning/run_final_planner_evaluation.py`
+`scripts/planning/evaluation/run_final_planner_evaluation.py`
 
 Development-only redesign regression:
 
-`scripts/planning/validate_planner_redesign_development.py`
+`scripts/planning/validation/validate_planner_redesign_development.py`
 
 Raw final metrics:
 

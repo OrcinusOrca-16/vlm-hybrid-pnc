@@ -32,7 +32,7 @@ Read at minimum:
 1. `docs/roadmap.md`
 2. `src/config/planning.py`
 3. `src/benchmark/tuning_scenario_suite.py`
-4. `scripts/planning/run_sampling_tuning.py`
+4. `scripts/planning/development/run_sampling_tuning.py`
 5. `src/benchmark/sampling_adapter.py`
 6. `src/planning/sampling_planner.py`
 7. `src/planning/hard_constraints.py`
@@ -46,8 +46,8 @@ Record the starting Git commit and inspect `git status --short` before edits. Pr
 
 The tuning runner supports two evidence-driven control modes:
 
-- `python -m scripts.planning.run_sampling_tuning --stop-after-structure` runs Stage A only and enables the extra candidate-level feasibility/pruning diagnostics.
-- `python -m scripts.planning.run_sampling_tuning --skip-terminal` carries the Stage-A Pareto frontier directly into weight sensitivity when terminal-state expansion is not justified.
+- `python -m scripts.planning.development.run_sampling_tuning --stop-after-structure` runs Stage A only and enables the extra candidate-level feasibility/pruning diagnostics.
+- `python -m scripts.planning.development.run_sampling_tuning --skip-terminal` carries the Stage-A Pareto frontier directly into weight sensitivity when terminal-state expansion is not justified.
 
 Running the script without flags preserves the full historical A -> B -> C reproduction workflow and does not pay the extra diagnostic re-validation cost.
 
