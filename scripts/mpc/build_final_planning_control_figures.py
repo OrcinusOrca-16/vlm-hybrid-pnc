@@ -14,6 +14,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
+from scripts.plotting_style import OPTIMIZATION_COLOR, SAMPLING_COLOR
+
 
 INPUT_CSV = Path("outputs/final_planning_control/final_planning_control_benchmark.csv")
 OUTPUT_DIR = Path("outputs/final_planning_control/figures")
@@ -31,16 +33,19 @@ def load_rows() -> list[dict]:
     with INPUT_CSV.open("r", encoding="utf-8", newline="") as file:
         rows = list(csv.DictReader(file))
 
+    float_keys = (
+        "safe_speed_mps",
+        "same_speed_rms_lateral_error_m",
+        "same_speed_rms_heading_error_rad",
+        "same_speed_max_abs_feedback_rad",
+        "planning_time_ms",
+        "canonical_objective",
+    )
     for row in rows:
         row["planner_success"] = as_bool(row["planner_success"])
         row["system_tracking_success"] = as_bool(row["system_tracking_success"])
-        for key in (
-            "safe_speed_mps",
-            "same_speed_rms_lateral_error_m",
-            "same_speed_rms_heading_error_rad",
-            "planning_time_ms",
-        ):
-            row[key] = as_float(row[key])
+        for key in float_keys:
+            row[key] = as_float(row.get(key, ""))
     return rows
 
 
@@ -78,18 +83,31 @@ def short_name(name: str) -> str:
     return name
 
 
-def save_success_counts(rows: list[dict]) -> None:
-    planners = ("Sampling", "Optimization")
-    keys = ("sampling", "optimization")
-    planner_counts = [sum(row["planner"] == key and row["planner_success"] for row in rows) for key in keys]
-    closed_loop_counts = [sum(row["planner"] == key and row["system_tracking_success"] for row in rows) for key in keys]
+def mean_metric(rows: list[dict], scenarios: list[str], planner: str, key: str) -> float:
+    mapping = row_map(rows, scenarios, planner)
+    values = [mapping[scenario][key] for scenario in scenarios if mapping[scenario][key] is not None]
+    if not values:
+        raise ValueError(f"No values available for {planner=} {key=}")
+    return float(np.mean(values))
 
-    x = np.arange(len(planners))
+
+def save_success_counts(rows: list[dict]) -> None:
+    metrics = ("Planner success", "Closed-loop success")
+    sampling = (
+        sum(row["planner"] == "sampling" and row["planner_success"] for row in rows),
+        sum(row["planner"] == "sampling" and row["system_tracking_success"] for row in rows),
+    )
+    optimization = (
+        sum(row["planner"] == "optimization" and row["planner_success"] for row in rows),
+        sum(row["planner"] == "optimization" and row["system_tracking_success"] for row in rows),
+    )
+
+    x = np.arange(len(metrics))
     width = 0.34
     fig, ax = plt.subplots(figsize=(7.0, 4.5))
-    ax.bar(x - width / 2, planner_counts, width, label="Planner success")
-    ax.bar(x + width / 2, closed_loop_counts, width, label="Closed-loop success")
-    ax.set_xticks(x, planners)
+    ax.bar(x - width / 2, sampling, width, label="Sampling", color=SAMPLING_COLOR)
+    ax.bar(x + width / 2, optimization, width, label="Optimization", color=OPTIMIZATION_COLOR)
+    ax.set_xticks(x, metrics)
     ax.set_ylim(0, 10)
     ax.set_ylabel("Successful scenarios / 9")
     ax.set_title("Frozen Planning & Control Benchmark Success")
@@ -109,14 +127,39 @@ def save_grouped_scenario_metric(rows: list[dict], scenarios: list[str], key: st
     x = np.arange(len(scenarios))
     width = 0.38
     fig, ax = plt.subplots(figsize=(11.5, 5.0))
-    ax.bar(x - width / 2, sampling_values, width, label="Sampling")
-    ax.bar(x + width / 2, optimization_values, width, label="Optimization")
+    ax.bar(x - width / 2, sampling_values, width, label="Sampling", color=SAMPLING_COLOR)
+    ax.bar(x + width / 2, optimization_values, width, label="Optimization", color=OPTIMIZATION_COLOR)
     ax.set_xticks(x, labels, rotation=30, ha="right")
     ax.set_ylabel(ylabel)
     ax.set_title(title)
     ax.legend()
     fig.tight_layout()
     fig.savefig(OUTPUT_DIR / filename, dpi=180)
+    plt.close(fig)
+
+
+def save_bridge_figure(rows: list[dict], scenarios: list[str]) -> None:
+    metrics = (
+        ("planning_time_ms", "Mean planning time [ms]", "lower is better"),
+        ("canonical_objective", "Mean canonical objective", "lower is better"),
+        ("safe_speed_mps", "Mean safe speed [m/s]", "higher is better"),
+        ("same_speed_rms_lateral_error_m", "Mean same-speed RMS lateral error [m]", "lower is better"),
+    )
+
+    fig, axes = plt.subplots(2, 2, figsize=(10.0, 7.2))
+    for ax, (key, ylabel, direction) in zip(axes.flat, metrics):
+        values = (
+            mean_metric(rows, scenarios, "sampling", key),
+            mean_metric(rows, scenarios, "optimization", key),
+        )
+        ax.bar((0, 1), values, color=(SAMPLING_COLOR, OPTIMIZATION_COLOR))
+        ax.set_xticks((0, 1), ("Sampling", "Optimization"))
+        ax.set_ylabel(ylabel)
+        ax.set_title(direction)
+
+    fig.suptitle("Planning Metrics vs Closed-Loop Trackability\nCommon-success scenarios only")
+    fig.tight_layout()
+    fig.savefig(OUTPUT_DIR / "planning_control_bridge.png", dpi=180)
     plt.close(fig)
 
 
@@ -150,6 +193,7 @@ def main() -> None:
         title="Planning Computation Time on Common-Success Scenarios",
         filename="planning_time_by_scenario.png",
     )
+    save_bridge_figure(rows, scenarios)
 
     print(f"Saved figures to: {OUTPUT_DIR}")
     for path in sorted(OUTPUT_DIR.glob("*.png")):
