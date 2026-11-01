@@ -463,8 +463,9 @@ Phase 1 MPC 保留为 baseline。当前 spatial planned path 接入 common curva
 - [x] curved-path tracking validation
 - [x] Sampling path + common MPC
 - [x] Optimization path + common MPC
-- [ ] 检查 planner curvature 与 MPC steering constraint 一致性
-- [ ] 系统搜索 horizon / Q / R（仅在需要时）
+- [x] 检查 planner curvature 与 MPC steering constraint 一致性
+- [x] 系统搜索 horizon / Q / R（仅在需要时）
+- [ ] Future: planner-level steering-rate / curvature-rate feasibility at design speed
 
 ---
 
