@@ -492,31 +492,27 @@ Final frozen 9-scenario result:
 
 ---
 
-## Phase 3 — C++ Core Engineering
-
-将核心数据结构、Reference Line、Frenet、车辆模型、MPC 和 Planner 迁移到 C++，并验证 Python / C++ 数值一致性。
-
-## Phase 4 — Dynamic Scenarios & System Evaluation
+## Phase 3 — Dynamic Scenarios & System Evaluation
 
 加入动态车辆、行人、lead-vehicle slowdown、cut-in 等场景，并建立 collision rate、task completion、minimum distance 等系统级指标。
 
-## Phase 5 — Hybrid Planner（Optional）
+## Phase 4 — Hybrid Planner（Optional）
 
 Sampling 提供可行解 / initial guess，再由 Optimization refinement，并与两种独立 Planner 做统一 Benchmark。
 
-## Phase 6 — Safety & Fallback
+## Phase 5 — Safety & Fallback
 
 建立独立 deterministic safety checker、planning failure fallback 和安全介入统计。
 
-## Phase 7 — VLM Behavior Layer
+## Phase 6 — VLM Behavior Layer
 
 VLM 只负责高层 `KEEP_LANE / SLOW_DOWN / STOP / CAUTIOUS` 等 `BehaviorCommand`，不直接生成 control command。
 
-## Phase 8 — Rule-based vs VLM Evaluation
+## Phase 7 — Rule-based vs VLM Evaluation
 
 在相同场景和相同下游 Planning & Control 下比较规则决策与 VLM 的正确率、延迟、安全介入和 failure cases。
 
-## Phase 9 — Portfolio Evaluation & Documentation
+## Phase 8 — Portfolio Evaluation & Documentation
 
 - [ ] README 重构
 - [ ] 系统架构图
