@@ -99,6 +99,4 @@
   <text x="830" y="586" text-anchor="middle" class="value">0.0772 1/m</text>
   <text x="940" y="529" text-anchor="middle" class="value">0.1152 1/m</text>
   <text x="885" y="738" text-anchor="middle" class="label">Mean max |curvature|</text>
-
-  <text x="600" y="815" text-anchor="middle" class="label" fill="#666">Sampling = red · Optimization = purple</text>
 </svg>
