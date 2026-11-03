@@ -147,9 +147,10 @@ def save_bridge_figure(rows: list[dict], scenarios: list[str]) -> None:
         ("same_speed_rms_lateral_error_m", "Mean same-speed RMS lateral error [m]", "lower is better", ".5f"),
     )
 
-    fig, axes = plt.subplots(2, 2, figsize=(10.5, 7.5))
+    # Match the 1200x850 planning-only summary canvas and keep each panel intentionally compact.
+    fig, axes = plt.subplots(2, 2, figsize=(12.0, 8.5))
     x = np.array((0.0, 1.0))
-    width = 0.46
+    width = 0.42
 
     for ax, (key, ylabel, direction, value_format) in zip(axes.flat, metrics):
         values = (
@@ -158,8 +159,8 @@ def save_bridge_figure(rows: list[dict], scenarios: list[str]) -> None:
         )
         bars = ax.bar(x, values, width=width, color=(SAMPLING_COLOR, OPTIMIZATION_COLOR))
         ax.set_xticks(x, ("Sampling", "Optimization"))
-        ax.set_xlim(-0.65, 1.65)
-        ax.set_ylabel(ylabel, labelpad=2)
+        ax.set_xlim(-0.72, 1.72)
+        ax.set_ylabel(ylabel, labelpad=4)
         ax.set_title(direction, pad=8)
         ax.grid(axis="y", alpha=0.25)
         ax.set_axisbelow(True)
@@ -180,9 +181,11 @@ def save_bridge_figure(rows: list[dict], scenarios: list[str]) -> None:
         Patch(facecolor=SAMPLING_COLOR, label="Sampling"),
         Patch(facecolor=OPTIMIZATION_COLOR, label="Optimization"),
     )
-    fig.suptitle("Planning Metrics vs Closed-Loop Trackability\nCommon-success scenarios only", y=0.985, fontsize=15)
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.91), ncol=2, frameon=False)
-    fig.subplots_adjust(left=0.09, right=0.98, bottom=0.08, top=0.79, wspace=0.42, hspace=0.30)
+    fig.suptitle("Planning Metrics vs Closed-Loop Trackability\nCommon-success scenarios only", y=0.965, fontsize=16)
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.885), ncol=2, frameon=False)
+
+    # Compact panels with generous gutters, visually aligned with planning_only_summary.svg.
+    fig.subplots_adjust(left=0.105, right=0.895, bottom=0.135, top=0.775, wspace=0.40, hspace=0.50)
     fig.savefig(OUTPUT_DIR / "planning_control_bridge.png", dpi=180)
     fig.savefig(OUTPUT_DIR / "planning_control_bridge.svg")
     plt.close(fig)
