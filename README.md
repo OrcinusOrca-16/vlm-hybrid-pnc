@@ -40,17 +40,17 @@ For the 8 scenarios solved by both planners:
 
 | Metric | Sampling | Optimization |
 | --- | ---: | ---: |
-| Mean constant safe speed‡ | **3.473 m/s** | 3.058 m/s |
+| Mean constant safe speed* | **3.473 m/s** | 3.058 m/s |
 | Mean system RMS lateral error | **0.00989 m** | 0.01317 m |
 | Mean system RMS heading error | **0.00615 rad** | 0.00913 rad |
 | Mean same-speed RMS lateral error | **0.00655 m** | 0.01109 m |
 | Mean same-speed max feedback magnitude | **0.0273 rad** | 0.0710 rad |
 
-‡ Constant safe speed is the highest single speed, capped by the 5 m/s target, that keeps path-induced steering-rate demand within the configured limit.
+\* Constant safe speed is the highest single speed, capped by the 5 m/s target, that keeps path-induced steering-rate demand within the configured limit.
 
 > **Planning–Control conclusion:** Optimization is the stronger planner overall in the current frozen suite, but Sampling can produce paths that are easier for the current controller to track.
 
-![Planning–Control bridge](outputs/final_planning_control/figures/planning_control_bridge_v2.svg)
+![Closed-loop control summary](outputs/final_planning_control/figures/closed_loop_control_summary.svg)
 
 The difference is intentional to expose an important engineering point: **a lower planning-domain objective does not automatically imply lower steering demand or easier closed-loop tracking**.
 
