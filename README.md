@@ -50,7 +50,7 @@ For the 8 scenarios solved by both planners:
 
 > **Planning–Control conclusion:** Optimization is the stronger planner overall in the current frozen suite, but Sampling can produce paths that are easier for the current controller to track.
 
-![Planning–Control bridge](outputs/final_planning_control/figures/planning_control_bridge.svg)
+![Planning–Control bridge](outputs/final_planning_control/figures/planning_control_bridge_v2.svg)
 
 The difference is intentional to expose an important engineering point: **a lower planning-domain objective does not automatically imply lower steering demand or easier closed-loop tracking**.
 
