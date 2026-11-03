@@ -194,7 +194,7 @@ def save_bridge_figure(rows: list[dict], scenarios: list[str]) -> None:
     # Compact panels with generous gutters, visually aligned with planning_only_summary.svg.
     fig.subplots_adjust(left=0.105, right=0.895, bottom=0.135, top=0.755, wspace=0.40, hspace=0.55)
     fig.savefig(OUTPUT_DIR / "planning_control_bridge.png", dpi=180)
-    fig.savefig(OUTPUT_DIR / "planning_control_bridge.svg")
+    fig.savefig(OUTPUT_DIR / "planning_control_bridge_v2.svg")
     plt.close(fig)
 
 
