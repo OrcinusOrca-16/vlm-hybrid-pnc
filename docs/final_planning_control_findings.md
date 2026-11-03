@@ -64,7 +64,7 @@ For a fair direct comparison, path and tracking averages below use only the 8 sc
 
 Single-run planning time in this table is reported as a directional comparison only; repeated runtime benchmarking is maintained separately.
 
-![Planning–Control bridge](../outputs/final_planning_control/figures/planning_control_bridge_v2.svg)
+![Closed-loop control summary](../outputs/final_planning_control/figures/closed_loop_control_summary.svg)
 
 ## Why the ranking changes after control integration
 
@@ -145,9 +145,9 @@ The configured `0.5 rad/s` steering-rate limit is treated as a baseline MPC/vehi
 The portfolio should show two complementary summary views:
 
 1. **Planning-only summary** — success rate, planner runtime, canonical objective, and path geometry.
-2. **Planning–Control bridge** — planner metrics alongside safe speed and closed-loop tracking metrics.
+2. **Closed-loop control summary** — safe speed, tracking error, and feedback effort under the common MPC.
 
-The bridge view is intentionally designed to make the objective-alignment gap visible rather than hiding it.
+Keeping the second figure control-only avoids duplicating planner metrics and makes the planner/control trade-off easier to read.
 
 ## Final interpretation
 
