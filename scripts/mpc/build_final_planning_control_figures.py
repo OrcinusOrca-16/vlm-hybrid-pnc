@@ -13,6 +13,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.patches import Patch
 
 from scripts.plotting_style import OPTIMIZATION_COLOR, SAMPLING_COLOR
 
@@ -35,11 +36,11 @@ def load_rows() -> list[dict]:
 
     float_keys = (
         "safe_speed_mps",
+        "system_rms_lateral_error_m",
         "same_speed_rms_lateral_error_m",
         "same_speed_rms_heading_error_rad",
         "same_speed_max_abs_feedback_rad",
         "planning_time_ms",
-        "canonical_objective",
     )
     for row in rows:
         row["planner_success"] = as_bool(row["planner_success"])
@@ -138,28 +139,71 @@ def save_grouped_scenario_metric(rows: list[dict], scenarios: list[str], key: st
     plt.close(fig)
 
 
-def save_bridge_figure(rows: list[dict], scenarios: list[str]) -> None:
+def save_control_summary_figure(rows: list[dict], scenarios: list[str]) -> None:
     metrics = (
-        ("planning_time_ms", "Mean planning time [ms]", "lower is better"),
-        ("canonical_objective", "Mean canonical objective", "lower is better"),
-        ("safe_speed_mps", "Mean safe speed [m/s]", "higher is better"),
-        ("same_speed_rms_lateral_error_m", "Mean same-speed RMS lateral error [m]", "lower is better"),
+        ("safe_speed_mps", "Safe Speed", "Mean constant safe speed [m/s]", "higher is better", ".3f"),
+        (
+            "system_rms_lateral_error_m",
+            "System Lateral Error",
+            "Mean system RMS lateral error [m]",
+            "lower is better",
+            ".5f",
+        ),
+        (
+            "same_speed_rms_lateral_error_m",
+            "Same-Speed Lateral Error",
+            "Mean same-speed RMS lateral error [m]",
+            "lower is better",
+            ".5f",
+        ),
+        (
+            "same_speed_max_abs_feedback_rad",
+            "Same-Speed Feedback Effort",
+            "Mean same-speed max |feedback| [rad]",
+            "lower is better",
+            ".4f",
+        ),
     )
 
-    fig, axes = plt.subplots(2, 2, figsize=(10.0, 7.2))
-    for ax, (key, ylabel, direction) in zip(axes.flat, metrics):
+    fig, axes = plt.subplots(2, 2, figsize=(12.0, 8.5))
+    x = np.array((0.0, 1.0))
+    width = 0.42
+
+    for ax, (key, panel_title, metric_label, direction, value_format) in zip(axes.flat, metrics):
         values = (
             mean_metric(rows, scenarios, "sampling", key),
             mean_metric(rows, scenarios, "optimization", key),
         )
-        ax.bar((0, 1), values, color=(SAMPLING_COLOR, OPTIMIZATION_COLOR))
-        ax.set_xticks((0, 1), ("Sampling", "Optimization"))
-        ax.set_ylabel(ylabel)
-        ax.set_title(direction)
+        bars = ax.bar(x, values, width=width, color=(SAMPLING_COLOR, OPTIMIZATION_COLOR))
+        ax.set_xticks(x, ("Sampling", "Optimization"))
+        ax.set_xlim(-0.72, 1.72)
+        ax.set_xlabel(metric_label, labelpad=8)
+        ax.set_title(panel_title, fontsize=12, fontweight="bold", pad=24)
+        ax.text(0.5, 1.035, direction, transform=ax.transAxes, ha="center", va="bottom", fontsize=9)
+        ax.grid(axis="y", alpha=0.25)
+        ax.set_axisbelow(True)
 
-    fig.suptitle("Planning Metrics vs Closed-Loop Trackability\nCommon-success scenarios only")
-    fig.tight_layout()
-    fig.savefig(OUTPUT_DIR / "planning_control_bridge.png", dpi=180)
+        ymax = max(values)
+        ax.set_ylim(0.0, ymax * 1.14)
+        for bar, value in zip(bars, values):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                bar.get_height() + 0.025 * ymax,
+                format(value, value_format),
+                ha="center",
+                va="bottom",
+                fontsize=9,
+            )
+
+    handles = (
+        Patch(facecolor=SAMPLING_COLOR, label="Sampling"),
+        Patch(facecolor=OPTIMIZATION_COLOR, label="Optimization"),
+    )
+    fig.suptitle("Closed-Loop Control Summary\nCommon-success scenarios only", y=0.965, fontsize=16)
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.885), ncol=2, frameon=False)
+    fig.subplots_adjust(left=0.105, right=0.895, bottom=0.135, top=0.755, wspace=0.40, hspace=0.55)
+    fig.savefig(OUTPUT_DIR / "closed_loop_control_summary.png", dpi=180)
+    fig.savefig(OUTPUT_DIR / "closed_loop_control_summary.svg")
     plt.close(fig)
 
 
@@ -193,10 +237,10 @@ def main() -> None:
         title="Planning Computation Time on Common-Success Scenarios",
         filename="planning_time_by_scenario.png",
     )
-    save_bridge_figure(rows, scenarios)
+    save_control_summary_figure(rows, scenarios)
 
     print(f"Saved figures to: {OUTPUT_DIR}")
-    for path in sorted(OUTPUT_DIR.glob("*.png")):
+    for path in sorted(OUTPUT_DIR.glob("*.*")):
         print(f"  {path}")
 
 

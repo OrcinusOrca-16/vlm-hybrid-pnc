@@ -19,7 +19,7 @@ import numpy as np
 from scripts.plotting_style import OPTIMIZATION_COLOR, SAMPLING_COLOR
 
 INPUT_CSV = Path("outputs/final_evaluation/final_planner_evaluation.csv")
-OUTPUT_PATH = Path("outputs/final_evaluation/figures/planning_only_summary.png")
+OUTPUT_PATH = Path("outputs/final_evaluation/figures/planning_only_summary.svg")
 
 
 def as_bool(value: str) -> bool:
@@ -147,12 +147,12 @@ def main() -> None:
     )
 
     handles, labels = axes[0, 0].get_legend_handles_labels()
-    figure.legend(handles, labels, loc="upper center", ncol=2)
-    figure.suptitle("Frozen Planning-Only Benchmark Summary", y=0.98)
-    figure.tight_layout(rect=(0.0, 0.0, 1.0, 0.94))
+    figure.suptitle("Frozen Planning-Only Benchmark Summary", y=0.985)
+    figure.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 0.94), ncol=2, frameon=False)
+    figure.tight_layout(rect=(0.0, 0.0, 1.0, 0.88))
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    figure.savefig(OUTPUT_PATH, dpi=180)
+    figure.savefig(OUTPUT_PATH)
     plt.close(figure)
 
     print(f"Saved: {OUTPUT_PATH}")
