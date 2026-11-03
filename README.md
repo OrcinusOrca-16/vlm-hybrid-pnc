@@ -17,12 +17,14 @@ Both planners feed the same curvature-aware MPC closed loop, allowing planning q
 
 ### Planning-only benchmark
 
-| Planner | Success | Mean runtime | Canonical objective* | RMS lateral deviation* |
+| Planner | Success | Mean runtime | Canonical objective†* | RMS lateral deviation* |
 | --- | ---: | ---: | ---: | ---: |
 | Sampling | 8 / 9 | 190.7 ms | 0.5125 | 0.6156 m |
 | Redesigned Optimization | **9 / 9** | **46.3 ms** | **0.2029** | **0.3772 m** |
 
 \* Objective and lateral-deviation averages use the 8 scenarios solved by both planners.
+
+† Canonical objective is a shared planner-independent Frenet path cost combining lateral deviation, path derivatives, and terminal-state errors; lower is better.
 
 Optimization also has the lower RMS curvature-rate average, while Sampling retains lower mean peak curvature and a larger worst-case clearance margin in the current suite.
 
@@ -38,11 +40,13 @@ For the 8 scenarios solved by both planners:
 
 | Metric | Sampling | Optimization |
 | --- | ---: | ---: |
-| Mean constant safe speed | **3.473 m/s** | 3.058 m/s |
+| Mean constant safe speed‡ | **3.473 m/s** | 3.058 m/s |
 | Mean system RMS lateral error | **0.00989 m** | 0.01317 m |
 | Mean system RMS heading error | **0.00615 rad** | 0.00913 rad |
 | Mean same-speed RMS lateral error | **0.00655 m** | 0.01109 m |
 | Mean same-speed max feedback magnitude | **0.0273 rad** | 0.0710 rad |
+
+‡ Constant safe speed is the highest single speed, capped by the 5 m/s target, that keeps path-induced steering-rate demand within the configured limit.
 
 > **Planning–Control conclusion:** Optimization is the stronger planner overall in the current frozen suite, but Sampling can produce paths that are easier for the current controller to track.
 
