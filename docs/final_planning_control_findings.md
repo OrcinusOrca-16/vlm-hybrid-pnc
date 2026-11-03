@@ -35,6 +35,8 @@ The planner-only conclusion is therefore:
 
 The canonical objective is useful for evaluating the path-shape terms that it explicitly contains, but it is not a complete controller-trackability metric.
 
+![Planning-only benchmark summary](../outputs/final_evaluation/figures/planning_only_summary.svg)
+
 ## Final Planning & Control success results
 
 | Metric | Sampling | Optimization |
@@ -62,6 +64,8 @@ For a fair direct comparison, path and tracking averages below use only the 8 sc
 
 Single-run planning time in this table is reported as a directional comparison only; repeated runtime benchmarking is maintained separately.
 
+![Planning–Control bridge](../outputs/final_planning_control/figures/planning_control_bridge.png)
+
 ## Why the ranking changes after control integration
 
 The Optimization Planner improves planning feasibility and consistently reduces the canonical Frenet objective, but this does **not** imply universally better vehicle/controller trackability.
@@ -74,6 +78,10 @@ Across the 8 common-success scenarios:
 - 1 scenario is effectively tied.
 - Sampling has the lower same-speed RMS lateral tracking error in 5 scenarios.
 - Optimization has the lower same-speed RMS lateral tracking error in 3 scenarios.
+
+![Safe speed by scenario](../outputs/final_planning_control/figures/safe_speed_by_scenario.png)
+
+![Same-speed lateral RMS by scenario](../outputs/final_planning_control/figures/same_speed_lateral_rms_by_scenario.png)
 
 The reason is objective alignment. The canonical planner objective penalizes Frenet quantities such as `l`, `l'`, `l''`, and `l'''`. The controller, however, is directly affected by Cartesian curvature distribution, steering-angle demand, steering-rate demand, lateral error, and heading error. On a curved reference line these controller-relevant quantities are nonlinear functions of the reference geometry and Frenet state.
 
