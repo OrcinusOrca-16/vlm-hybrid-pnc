@@ -17,14 +17,14 @@ Both planners feed the same curvature-aware MPC closed loop, allowing planning q
 
 ### Planning-only benchmark
 
-| Planner | Success | Mean runtime | Canonical objective†* | RMS lateral deviation* |
+| Planner | Success | Mean runtime | Canonical objective** | RMS lateral deviation* |
 | --- | ---: | ---: | ---: | ---: |
 | Sampling | 8 / 9 | 190.7 ms | 0.5125 | 0.6156 m |
 | Redesigned Optimization | **9 / 9** | **46.3 ms** | **0.2029** | **0.3772 m** |
 
 \* Objective and lateral-deviation averages use the 8 scenarios solved by both planners.
 
-† Canonical objective is a shared planner-independent Frenet path cost combining lateral deviation, path derivatives, and terminal-state errors; lower is better.
+\** Canonical objective is a shared planner-independent Frenet path cost combining lateral deviation, path derivatives, and terminal-state errors; lower is better.
 
 Optimization also has the lower RMS curvature-rate average, while Sampling retains lower mean peak curvature and a larger worst-case clearance margin in the current suite.
 
