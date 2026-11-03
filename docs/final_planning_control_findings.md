@@ -64,7 +64,7 @@ For a fair direct comparison, path and tracking averages below use only the 8 sc
 
 Single-run planning time in this table is reported as a directional comparison only; repeated runtime benchmarking is maintained separately.
 
-![Planning–Control bridge](../outputs/final_planning_control/figures/planning_control_bridge.svg)
+![Planning–Control bridge](../outputs/final_planning_control/figures/planning_control_bridge_v2.svg)
 
 ## Why the ranking changes after control integration
 
