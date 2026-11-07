@@ -75,7 +75,7 @@ $$
 U=[u_0,u_1,\dots,u_{N-1}]^T
 $$
 
-$\bar A$ 由 $A,A^2,\dots,A^N$ 堆叠，$\bar B$ 是由 $A^iB$ 构成的 lower-triangular block matrix。
+$\bar A$ 由 $A,A^2,\dots,A^N$ 堆叠，而 $\bar B$ 是由 $A^iB$ 构成的 lower-triangular block matrix。
 
 这一步把未来所有状态都改写成“当前 state + future input sequence”的函数。
 
@@ -190,7 +190,7 @@ $$
 $$
 
 $$
-\dot e_{yaw}\approx -v\kappa_{ref}^2 e_y+rac{v}{L}\sec^2(\delta_{ff})\delta_{correction}
+\dot e_{yaw}\approx -v\kappa_{ref}^2 e_y+\frac{v}{L}\sec^2(\delta_{ff})\delta_{correction}
 $$
 
 然后离散化成新的 $A,B$。

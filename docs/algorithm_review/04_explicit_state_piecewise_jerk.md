@@ -8,7 +8,7 @@ $$
 [l_0,l_1,\dots,l_N]
 $$
 
-然后通过 finite differences 近似 $l'$、$l''$、$l'''$。
+然后通过 finite differences 近似 `l'`、`l''`、`l'''`。
 
 问题出在 initial derivative constraints 也通过 early $l_i$ 间接施加。以简单 forward difference 为例：
 

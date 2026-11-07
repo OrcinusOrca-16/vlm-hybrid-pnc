@@ -45,7 +45,7 @@ $$
 Yaw：
 
 $$
-\psi_r = \operatorname{atan2}\left(\frac{dy}{ds},\frac{dx}{ds}\right)
+\psi_r = \mathrm{atan2}\left(\frac{dy}{ds},\frac{dx}{ds}\right)
 $$
 
 Curvature：
@@ -102,7 +102,7 @@ $$
 
 这就是 `sl_to_xy()`。
 
-## 5. $l'$、$l''$ 的含义
+## 5. `l'`、`l''` 的含义
 
 项目中的导数是对空间弧长 $s$ 求导，不是对时间：
 
@@ -119,7 +119,7 @@ $$
 候选路径相对 Reference Line 的 heading 满足：
 
 $$
-\Delta\psi = \operatorname{atan2}(l',1-\kappa_r l)
+\Delta\psi = \mathrm{atan2}(l',1-\kappa_r l)
 $$
 
 所以：
@@ -181,7 +181,7 @@ Cartesian path curvature 不等于简单的 $l''$。它还受到：
 **Q：为什么不直接在 Cartesian 中优化 $x,y$？**  
 A：可以，但 Frenet 把道路约束和 lateral maneuver 表达得更直接，特别适合 lane-level path planning。
 
-**Q：$l'$ 是横向速度吗？**  
+**Q：`l'` 是横向速度吗？**  
 A：不是。这里是 $dl/ds$，是空间 profile 的 slope，不是 $dl/dt$。
 
 **Q：Frenet 有什么风险？**  

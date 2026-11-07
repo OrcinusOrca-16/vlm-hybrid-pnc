@@ -33,7 +33,7 @@ $$
 在当前点做一阶 Taylor approximation：
 
 $$
-c(l_i,l_i')\approx c_i^k+rac{\partial c}{\partial l}\bigg|_k(l_i-l_i^k)+rac{\partial c}{\partial l'}\bigg|_k(l_i'-l_i'^k)
+c(l_i,l_i')\approx c_i^k+\frac{\partial c}{\partial l}\bigg|_k(l_i-l_i^k)+\frac{\partial c}{\partial l'}\bigg|_k(l_i'-l_i'^k)
 $$
 
 然后把安全要求写成 affine constraint：

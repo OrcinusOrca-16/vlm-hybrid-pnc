@@ -26,12 +26,10 @@ $$
 $$
 \begin{bmatrix}
 x_g\\y_g
-\end{bmatrix}
-=
+\end{bmatrix} =
 \begin{bmatrix}
 x\\y
-\end{bmatrix}
-+
+\end{bmatrix} +
 \begin{bmatrix}
 \cos\psi & -\sin\psi\\
 \sin\psi & \cos\psi
@@ -56,11 +54,11 @@ $$
 然后找这个点到 axis-aligned vehicle rectangle 的最近点：
 
 $$
-x_c=\operatorname{clamp}(x_o^{local},x_{min},x_{max})
+x_c=\mathrm{clamp}(x_o^{local},x_{min},x_{max})
 $$
 
 $$
-y_c=\operatorname{clamp}(y_o^{local},y_{min},y_{max})
+y_c=\mathrm{clamp}(y_o^{local},y_{min},y_{max})
 $$
 
 点到矩形的距离：
