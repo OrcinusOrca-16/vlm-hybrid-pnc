@@ -1,7 +1,7 @@
 # Historical execution record, not a one-click replay script.
 # Baseline adapter/runtime commands ran before production edits.
 # For historical production baseline, use starting commit 159d72baccf124e85f5642cdff0ca52fd1201d25.
-# 在 E:\file\work\P&C Portfolio\vlm-hybrid-pnc 执行；使用仓库 .venv。
+# 在仓库根目录执行；使用仓库 .venv。
 .\.venv\Scripts\python.exe -m scripts.planning.validation.validate_reference_line
 .\.venv\Scripts\python.exe -m scripts.planning.validation.validate_frenet
 .\.venv\Scripts\python.exe -m scripts.planning.development.run_sampling_trackability_tuning > outputs\sampling_trackability_initial.log

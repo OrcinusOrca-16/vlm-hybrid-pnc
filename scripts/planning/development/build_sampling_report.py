@@ -95,7 +95,7 @@ def main():
     ]:
         a, b = stats["baseline"]["dense"][key], stats["recommended"]["dense"][key]
         fine_table += f"| {name} | {a:.6f} | {b:.6f} |\n"
-    commands = r"""# 在 E:\file\work\P&C Portfolio\vlm-hybrid-pnc 执行；使用仓库 .venv。
+    commands = r"""# 在仓库根目录执行；使用仓库 .venv。
 .\.venv\Scripts\python.exe -m scripts.planning.validation.validate_reference_line
 .\.venv\Scripts\python.exe -m scripts.planning.validation.validate_frenet
 .\.venv\Scripts\python.exe -m scripts.planning.development.run_sampling_trackability_tuning > outputs\sampling_trackability_initial.log
@@ -137,7 +137,7 @@ git diff --stat
     Path("docs/sampling_trackability_commands.ps1").write_text(commands, encoding="utf-8")
     report = f"""Sampling Planner DEVELOPMENT 调优报告（2026-11-01）
 
-工作仓库：`E:\\file\\work\\P&C Portfolio\\vlm-hybrid-pnc`。起始提交：`159d72baccf124e85f5642cdff0ca52fd1201d25`；开始时工作树干净。推荐参数已实现，等待用户审阅后决定最终冻结及最终评测。本次没有运行最终评测，没有构建、调用或读取 held-out 场景定义，没有使用被禁止的道路场景调参；没有修改场景、物理阈值、车辆参数、MPC 权重/时域或 Optimization Planner 生产逻辑。
+工作仓库：本仓库根目录。起始提交：`159d72baccf124e85f5642cdff0ca52fd1201d25`；开始时工作树干净。推荐参数已实现，等待用户审阅后决定最终冻结及最终评测。本次没有运行最终评测，没有构建、调用或读取 held-out 场景定义，没有使用被禁止的道路场景调参；没有修改场景、物理阈值、车辆参数、MPC 权重/时域或 Optimization Planner 生产逻辑。
 
 1. **基线与评价口径。** DEVELOPMENT 共 26 个场景，未移除任何初始状态无效场景。基线 22/26，45 条候选，平均安全速度 4.312302 m/s，最小/早障碍速度 0.897230 m/s，平均几何代价 0.5275265，最小净空 0.5363775 m。四个失败场景见下文。参考线与 Frenet 验证均通过；生产路径及硬约束检查间隔为 0.5 m，额外 0.05 m 复核仅用于 DEVELOPMENT 诊断。几何代价沿用独立 canonical evaluator；均值对比使用相同 22 个成功场景。23/26 的均值与 22/26 不直接排名。
 
