@@ -7,7 +7,7 @@ from matplotlib.patches import Circle
 from src.benchmark.canonical_runner import run_canonical_benchmark
 from src.planning.frenet import sl_to_xy, vehicle_state_to_frenet
 
-RESULT_DIR = Path("results/benchmark")
+RESULT_DIR = Path("outputs/development/benchmark")
 
 
 def plot_cartesian(benchmark) -> None:
@@ -175,8 +175,8 @@ def main() -> None:
     plot_frenet(benchmark)
 
     print("Canonical benchmark visualization passed.")
-    print("  saved=" "results/benchmark/" "canonical_benchmark_cartesian.png")
-    print("  saved=" "results/benchmark/" "canonical_benchmark_frenet.png")
+    print("  saved=" "outputs/development/benchmark/" "canonical_benchmark_cartesian.png")
+    print("  saved=" "outputs/development/benchmark/" "canonical_benchmark_frenet.png")
 
     plt.show()
 

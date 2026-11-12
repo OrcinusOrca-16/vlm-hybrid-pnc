@@ -245,7 +245,7 @@ A tuning loop may stop and freeze when the evidence supports all of the followin
 - remaining candidates are dominated or represent an explainable Pareto trade-off;
 - the chosen config is not relying on a methodological confound;
 - runtime is measured with the same benchmark timing scope;
-- the final config is simple enough to justify and explain in an interview;
+- the final configuration is technically justified and clearly documented;
 - all required development regressions pass.
 
 If two or more Pareto candidates remain genuinely incomparable because the choice requires a product preference that is not encoded in the repository, stop and present the trade-off instead of inventing a preference.

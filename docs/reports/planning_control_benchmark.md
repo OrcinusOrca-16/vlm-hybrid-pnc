@@ -17,6 +17,23 @@ For all portfolio figures, the planner color convention is fixed by planner iden
 
 This avoids misleading color changes when one planner has no valid result in a scenario.
 
+## Evaluation metric definitions and source
+
+The shared [benchmark runner](../../scripts/mpc/run_final_planning_control_benchmark.py) implements `ClosedLoopMetrics` and `run_closed_loop()`, using the same [curvature-aware MPC](../../src/control/curvature_aware_mpc.py) for both planners.
+
+| Group | Metrics and definition |
+| --- | --- |
+| Tracking accuracy | Lateral and heading errors to the matched path reference; final, maximum absolute, RMS = `sqrt(mean(error²))` |
+| Control demand | Maximum absolute steering angle (rad), executed steering rate `(delta[k]-delta[k-1])/dt` (rad/s) |
+| Feedback effort | Maximum absolute and RMS steering correction `delta_executed - atan(L*kappa_reference)` (rad) |
+| Feasibility | Path-end and terminal-error checks, closed-loop success and constant Safe Speed (m/s) |
+
+[Safe-speed implementation](../../src/control/path_tracking.py): `delta_i=atan(L*kappa_i)`, `g_max=max(abs((delta[i+1]-delta[i])/(s[i+1]-s[i])))`; for nonzero gradient, `v_safe=min(v_target,delta_rate_max/g_max)`, otherwise `v_safe=v_target`. It is a *constant steering-rate-limited speed*, not a comprehensive traffic-safety speed profile. `0.5 rad/s` is a chosen baseline, not a measured actuator limit.
+
+**Evaluation protocol:** each successful path is tracked at its own constant Safe Speed; on shared-success scenarios both paths are also tracked at the lower of their two safe speeds. Longitudinal acceleration/deceleration transients are excluded. Success requires reaching the path end (≤0.25 m remaining), final lateral error ≤0.20 m, heading error ≤0.10 rad and steering limits within numeric tolerances (0.001 rad; 0.02 rad/s). This does not guarantee continuous between-knot collision avoidance or robustness to model mismatch.
+
+**Where to find results:** [per-scenario CSV](../../outputs/planning_control_benchmark/final_planning_control_benchmark.csv), [JSON summary](../../outputs/planning_control_benchmark/final_planning_control_benchmark_summary.json), [figure script](../../scripts/mpc/build_final_planning_control_figures.py), and the separate [Planning-only report](planning_benchmark.md).
+
 ## Planning-only result
 
 The planner-only benchmark and the closed-loop benchmark answer different questions and should be read separately.
@@ -35,7 +52,7 @@ The planner-only conclusion is therefore:
 
 The canonical objective is useful for evaluating the path-shape terms that it explicitly contains, but it is not a complete controller-trackability metric.
 
-![Planning-only benchmark summary](../outputs/final_evaluation/figures/planning_only_summary.svg)
+![Planning-only benchmark summary](../../outputs/planning_benchmark/figures/planning_only_summary.svg)
 
 ## Final Planning & Control success results
 
@@ -64,7 +81,7 @@ For a fair direct comparison, path and tracking averages below use only the 8 sc
 
 Single-run planning time in this table is reported as a directional comparison only; repeated runtime benchmarking is maintained separately.
 
-![Closed-loop control summary](../outputs/final_planning_control/figures/closed_loop_control_summary.svg)
+![Closed-loop control summary](../../outputs/planning_control_benchmark/figures/closed_loop_control_summary.svg)
 
 ## Why the ranking changes after control integration
 
@@ -79,9 +96,9 @@ Across the 8 common-success scenarios:
 - Sampling has the lower same-speed RMS lateral tracking error in 5 scenarios.
 - Optimization has the lower same-speed RMS lateral tracking error in 3 scenarios.
 
-![Safe speed by scenario](../outputs/final_planning_control/figures/safe_speed_by_scenario.png)
+![Safe speed by scenario](../../outputs/planning_control_benchmark/figures/safe_speed_by_scenario.png)
 
-![Same-speed lateral RMS by scenario](../outputs/final_planning_control/figures/same_speed_lateral_rms_by_scenario.png)
+![Same-speed lateral RMS by scenario](../../outputs/planning_control_benchmark/figures/same_speed_lateral_rms_by_scenario.png)
 
 The reason is objective alignment. The canonical planner objective penalizes Frenet quantities such as `l`, `l'`, `l''`, and `l'''`. The controller, however, is directly affected by Cartesian curvature distribution, steering-angle demand, steering-rate demand, lateral error, and heading error. On a curved reference line these controller-relevant quantities are nonlinear functions of the reference geometry and Frenet state.
 

@@ -271,7 +271,7 @@ Freeze when the evidence supports all of the following:
 - the selected candidate is not benefiting from resolution/validator coupling, solver numerical looseness, or another methodological confound;
 - failure cases are understood well enough to explain;
 - runtime is measured consistently;
-- the chosen config is simple and interview-explainable;
+- the chosen configuration is technically justified and clearly documented;
 - all development regressions pass.
 
 If multiple Pareto candidates remain genuinely incomparable because the choice depends on a product preference not encoded in the repository, stop and report the trade-off rather than inventing that preference.

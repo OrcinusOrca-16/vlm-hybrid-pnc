@@ -18,7 +18,7 @@ from src.benchmark.scenario_runner import ScenarioBenchmarkRun, run_benchmark_sc
 from src.config.planning import DEFAULT_OPTIMIZATION_PLANNER_CONFIG, DEFAULT_SAMPLING_PLANNER_CONFIG
 from src.planning.frenet import sl_to_xy, vehicle_state_to_frenet
 
-OUTPUT_DIR = Path("outputs/final_evaluation")
+OUTPUT_DIR = Path("outputs/planning_benchmark")
 
 FIGURE_DIR = OUTPUT_DIR / "figures"
 

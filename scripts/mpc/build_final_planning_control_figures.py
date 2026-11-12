@@ -18,8 +18,8 @@ from matplotlib.patches import Patch
 from scripts.plotting_style import OPTIMIZATION_COLOR, SAMPLING_COLOR
 
 
-INPUT_CSV = Path("outputs/final_planning_control/final_planning_control_benchmark.csv")
-OUTPUT_DIR = Path("outputs/final_planning_control/figures")
+INPUT_CSV = Path("outputs/planning_control_benchmark/final_planning_control_benchmark.csv")
+OUTPUT_DIR = Path("outputs/planning_control_benchmark/figures")
 
 
 def as_bool(value: str) -> bool:

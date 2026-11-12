@@ -1,19 +1,21 @@
-# VLM-Guided Hybrid Autonomous Driving Planner — 开发路线
+> Chinese version: [roadmap_cn.md](roadmap_cn.md). Both versions retain the same sections and checklist states.
 
-## Phase 0 — 项目初始化
+# VLM-Guided Hybrid Autonomous Driving Planner — Development Roadmap
 
-- [x] 创建 GitHub 仓库
-- [x] 配置 Python 开发环境
-- [x] 配置 Git / SSH
-- [x] 创建基础项目目录
+## Phase 0 — Project Initialization
+
+- [x] Create GitHub repository
+- [x] Set up Python environment
+- [x] Configure Git / SSH
+- [x] Create project directories
 
 ---
 
-## Phase 1 — Planning & Control 基线系统
+## Phase 1 — Planning & Control Baseline System
 
-### 1. 通用数据结构
+### 1. Common Data Structures
 
-建立 Planning & Control 模块之间统一的数据接口。
+Establish shared data interfaces between Planning and Control.
 
 - [x] `VehicleState`
 - [x] `ScenarioState`
@@ -22,11 +24,11 @@
 - [x] `TrajectoryPoint`
 - [x] `ControlCommand`
 
-### 2. 基础场景建模
+### 2. Basic Scenario Modeling
 
-- [x] 正常直行
-- [x] 前车减速
-- [x] 行人横穿
+- [x] Normal straight driving
+- [x] Lead-vehicle slowdown
+- [x] Pedestrian crossing
 
 ### 3. Rule-based Behavior Planner
 
@@ -34,51 +36,51 @@
 - [x] `SLOW_DOWN`
 - [x] `STOP`
 
-### 4. 基础参考轨迹生成
+### 4. Basic Reference Trajectory Generation
 
-- [x] 固定 `dt` 的直线参考轨迹
-- [x] KEEP_LANE / SLOW_DOWN / STOP 验证
-- [x] 加速度 / 减速度约束
-- [x] 位置积分
-- [x] 停车距离检查
-- [x] 参考速度与参考加速度输出
+- [x] Fixed-`dt` straight-line reference trajectory
+- [x] KEEP_LANE / SLOW_DOWN / STOP validation
+- [x] Acceleration/deceleration limits
+- [x] Position integration
+- [x] Stopping-distance check
+- [x] Reference speed and acceleration outputs
 
 ### 5. Kinematic Bicycle Model
 
-- [x] 推导 `x / y / yaw / speed` 状态方程
-- [x] 前轮转角 + 纵向加速度输入
-- [x] 固定 `dt` 离散化
-- [x] 直线匀速验证
-- [x] 加速 / 减速验证
-- [x] 固定转角转弯验证
+- [x] Derive `x / y / yaw / speed` state equations
+- [x] Front-wheel steering and longitudinal acceleration inputs
+- [x] Fixed-`dt` discretization
+- [x] Constant-speed straight-driving validation
+- [x] Acceleration/deceleration validation
+- [x] Constant-steering turning validation
 
 ### 6. Longitudinal PID
 
-- [x] 速度误差闭环
-- [x] PID 控制器
-- [x] 加速度限幅
+- [x] Closed-loop speed-error regulation
+- [x] PID controller
+- [x] Acceleration clamping
 - [x] anti-windup
-- [x] 与车辆模型闭环
-- [x] 加入 reference-acceleration feedforward
-- [x] 加速 / 减速 / 目标变化验证
+- [x] Closed loop with vehicle model
+- [x] Add reference-acceleration feedforward
+- [x] Acceleration/deceleration/target-change validation
 
 ### 7. Lateral MPC
 
-- [x] 定义 lateral / heading error
-- [x] 推导线性化运动学自行车误差模型
-- [x] 离散状态空间模型
-- [x] 多步预测模型
+- [x] Define lateral / heading error
+- [x] Derive linearized kinematic-bicycle tracking-error model
+- [x] Discrete state-space model
+- [x] Multi-step prediction model
 - [x] Q / R quadratic cost
 - [x] steering-angle constraint
 - [x] steering-rate constraint
 - [x] QP formulation
 - [x] OSQP solve
 - [x] receding-horizon first-control application
-- [x] 初始 lateral-error recovery
-- [x] 初始 heading-error recovery
+- [x] Initial lateral-error recovery
+- [x] Initial heading-error recovery
 - [x] baseline MPC calibration
 
-### 8. Planning & Control 闭环仿真
+### 8. Planning & Control Closed-loop Simulation
 
 - [x] Reference Trajectory → PID / MPC
 - [x] PID → acceleration
@@ -89,13 +91,13 @@
 - [x] SLOW_DOWN closed loop
 - [x] STOP closed loop
 
-### 9. 基础评价与可视化
+### 9. Basic Evaluation and Visualization
 
 - [x] speed MAE / RMSE / max error
 - [x] lateral MAE / RMSE / max error
 - [x] heading RMSE / max error
 - [x] steering-rate / smoothness
-- [x] 统一 P&C summary figure
+- [x] Unified P&C summary figure
 
 ---
 
@@ -103,9 +105,9 @@
 
 ### 10. Reference Line
 
-建立统一 smooth Reference Line。
+Build a common smooth Reference Line.
 
-- [x] 离散 Reference Point
+- [x] Discrete Reference Points
 - [x] cumulative arc length `s`
 - [x] yaw
 - [x] curvature
@@ -125,7 +127,7 @@
 
 ### 12. Sampling-based Planner
 
-基于 Frenet Sampling 生成空间 Candidate Paths，并使用统一物理约束筛选。
+Generate spatial candidate paths with Frenet Sampling and screen using shared physical constraints.
 
 #### Frenet geometry
 
@@ -182,9 +184,9 @@
 
 ### 13. Optimization-based Path Planner — Initial Version
 
-第一版 Optimization Planner 使用 `l`-only convex QP + finite differences + Frenet obstacle corridors。
+The first Optimization Planner used an `l`-only convex QP, finite differences and Frenet obstacle corridors.
 
-这一阶段保留在路线图中作为后续 redesign 的历史基线。
+This historical baseline is retained to explain the subsequent redesign.
 
 #### Initial QP state / objective
 
@@ -226,7 +228,7 @@
 
 ### 14. Sampling vs Optimization Unified Benchmark
 
-建立相同 Behavior intent 下的公平 planner comparison。
+Establish a fair comparison under identical Behavior intent.
 
 #### 14.1 Centralized Configuration
 
@@ -240,7 +242,7 @@
 
 #### 14.2 Matched Objective
 
-统一 geometric objective：
+Common geometric objective:
 
 `J = w_l J_l + w_dl J_dl + w_d2l J_d2l + w_d3l J_d3l + w_terminal_l J_terminal_l + w_terminal_dl J_terminal_dl`
 
@@ -255,14 +257,14 @@
 
 #### 14.3 Shared physical acceptance
 
-两种 Planner 使用同一最终 acceptance contract：
+Both planners use the same final acceptance contract:
 
 - [x] exact sampled Cartesian curvature check
 - [x] exact sampled-pose footprint-to-obstacle clearance
 - [x] Frenet-based road-boundary validation
 - [x] initial-state consistency
 
-> 注意：production road-boundary check 不是 rotated full-footprint exact containment。它使用 Frenet centerline ± half-width contract。后续额外加入 rotated-corner diagnostic，但该 diagnostic 不改变 production PASS / FAIL。
+> Note: production road validation uses the Frenet centerline ± half-width contract rather than exact rotated full-footprint containment. The subsequent rotated-corner diagnostic does not change production PASS/FAIL.
 
 #### 14.4 Unified benchmark interface
 
@@ -331,40 +333,40 @@ The `1.85 m` case was already part of the original evaluation geometry; it was n
 
 ### 15. Optimization Planner Physical-Consistency Redesign
 
-这一阶段由 **Planning → MPC / vehicle consistency** 触发，而不是为了提高 benchmark 分数。
+This redesign was triggered by **Planning → MPC / vehicle consistency**, not by benchmark score optimization.
 
 #### 15.1 Vehicle-derived curvature limit
 
-旧 benchmark 使用过宽松的：
+The earlier benchmark used an overly permissive limit:
 
 `κ_max = 1.0 1/m`
 
-根据车辆参数：
+Derived from vehicle parameters:
 
 - wheelbase `L = 2.7 m`
 - max steering `δ_max = 0.5 rad`
 
-改为：
+Replaced with:
 
 `κ_max = tan(δ_max) / L ≈ 0.202334 1/m`
 
-- [x] 使用 vehicle config 推导 curvature limit
-- [x] Planning acceptance 与 vehicle/MPC physical capability 对齐
+- [x] Derive curvature limit from vehicle config
+- [x] Align Planning acceptance with vehicle/MPC physical capability
 - [x] exact Cartesian curvature post-validation
 
 #### 15.2 Root-cause diagnosis
 
-真实曲率限制暴露旧 Optimization formulation 的结构性问题。
+The physically consistent curvature limit exposed structural weaknesses in the original Optimization formulation.
 
-- [x] 对比 Sampling 与 Optimization 在相同 physical constraints 下的 feasibility
-- [x] 确认 close-obstacle scene 并非天然物理不可行
-- [x] 识别 `l`-only + finite-difference initial constraints 的 early-path coupling / start-locking
-- [x] 识别 rectangular Frenet corridor 对 vehicle heading freedom 的保守性
-- [x] 判断问题属于 formulation limitation，而非简单 objective-weight tuning
+- [x] Compare Sampling and Optimization feasibility under identical physical constraints
+- [x] Confirm the close-obstacle scene is not inherently infeasible
+- [x] Identify early-path coupling/start-locking caused by `l`-only finite-difference initial constraints
+- [x] Identify the conservative heading freedom of rectangular Frenet corridors
+- [x] Identify a formulation limitation rather than an objective-weight tuning problem
 
 #### 15.3 Explicit Frenet state
 
-新 Optimization state：
+New Optimization state:
 
 `x = [l, l', l'']`
 
@@ -454,24 +456,24 @@ Because some evaluation cases were inspected during diagnosis, this set is bette
 
 ### 16. Curvature-aware MPC + Planning Integration
 
-Phase 1 MPC 保留为 baseline。当前 spatial planned path 接入 common curvature-aware controller；纵向 speed-transition dynamics 暂不纳入本阶段范围。
+The Phase 1 MPC remains the baseline. Spatial planned paths feed the common curvature-aware controller; longitudinal speed-transition dynamics remain out of scope.
 
-- [x] 从 planned path 获取 reference curvature
+- [x] Obtain reference curvature from the planned path
 - [x] steering curvature feedforward
 - [x] MPC feedback correction
 - [x] spatial path → constant safe reference speed
 - [x] curved-path tracking validation
 - [x] Sampling path + common MPC
 - [x] Optimization path + common MPC
-- [x] 检查 planner curvature 与 MPC steering constraint 一致性
-- [x] 评估 horizon / Q / R tuning 必要性：当前验证无系统搜索必要
+- [x] Check consistency between planner curvature and MPC steering constraints
+- [x] Assess need for horizon/Q/R tuning: current tests do not justify a systematic search
 - [ ] Future: planner-level steering-rate / curvature-rate feasibility at design speed
 
 ---
 
 ### 17. Final Planning & Control Benchmark
 
-使用统一 controller 比较两种 Planner 的闭环系统表现。
+Compare both planners in closed-loop operation using the same controller.
 
 - [x] Sampling Planner + common MPC
 - [x] Optimization Planner + common MPC
@@ -488,36 +490,16 @@ Final frozen 9-scenario result:
 - Sampling Planner: `8 / 9` planning success; all `8 / 8` successful plans tracked successfully.
 - Optimization Planner: `9 / 9` planning success and closed-loop tracking success.
 - Common-success comparisons use the same controller and an auxiliary common-speed diagnostic.
-- Final interpretation and limitations are documented in `docs/final_planning_control_findings.md`.
+- Final interpretation and limitations are documented in `docs/reports/planning_control_benchmark.md`.
 
 ---
 
-## Phase 3 — Dynamic Scenarios & System Evaluation
+## Potential Future Extensions (Outside Current Scope)
 
-加入动态车辆、行人、lead-vehicle slowdown、cut-in 等场景，并建立 collision rate、task completion、minimum distance 等系统级指标。
+These are optional research directions, not required phases of the completed Classical Planning & Control implementation.
 
-## Phase 4 — Hybrid Planner（Optional）
-
-Sampling 提供可行解 / initial guess，再由 Optimization refinement，并与两种独立 Planner 做统一 Benchmark。
-
-## Phase 5 — Safety & Fallback
-
-建立独立 deterministic safety checker、planning failure fallback 和安全介入统计。
-
-## Phase 6 — VLM Behavior Layer
-
-VLM 只负责高层 `KEEP_LANE / SLOW_DOWN / STOP / CAUTIOUS` 等 `BehaviorCommand`，不直接生成 control command。
-
-## Phase 7 — Rule-based vs VLM Evaluation
-
-在相同场景和相同下游 Planning & Control 下比较规则决策与 VLM 的正确率、延迟、安全介入和 failure cases。
-
-## Phase 8 — Portfolio Evaluation & Documentation
-
-- [ ] README 重构
-- [ ] 系统架构图
-- [ ] Planner benchmark figure
-- [x] Planning–Control integration results
-- [x] failure-case documentation
-- [ ] interview / presentation material
-- [ ] GIF / demo
+- **Dynamic scenarios and system evaluation:** dynamic vehicles, pedestrians, lead-vehicle slowdown, and cut-ins; evaluate collision rate, task completion, and minimum separation.
+- **Hybrid Sampling–Optimization Planner:** use Sampling for a feasible path or initial guess, refine it with Optimization, and compare all three approaches under common metrics.
+- **Learning-based Trajectory Planner:** explore learned trajectory generation or refinement (e.g., imitation learning or diffusion-based planning), then apply the same physical feasibility checks and downstream MPC evaluation used for classical planners.
+- **Safety monitoring and fallback:** independent deterministic safety checks, fallback after planning failure, and safety-intervention metrics.
+- **VLM-based behavior planning and evaluation:** use VLM only for high-level `BehaviorCommand` selection (`KEEP_LANE / SLOW_DOWN / STOP / CAUTIOUS`), never direct control; compare rule-based and VLM decisions using the same scenarios and downstream Planning & Control for accuracy, latency, interventions, and failure cases.

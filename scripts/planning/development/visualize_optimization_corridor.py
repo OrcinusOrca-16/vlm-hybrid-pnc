@@ -81,7 +81,7 @@ def main() -> None:
         path=result.path, vehicle_params=vehicle_params, obstacles=[obstacle], minimum_clearance_m=0.5
     )
 
-    output_directory = Path("results")
+    output_directory = Path("outputs/development/optimization")
 
     output_directory.mkdir(parents=True, exist_ok=True)
 

@@ -27,6 +27,9 @@ FORBIDDEN_GITHUB_LATEX = (
 BROKEN_ESCAPE_REMNANT = re.compile(
     r"(?<![A-Za-z\\])(?:oxed|egin|ext|ightarrow|rac|imes)(?=\\b|\\{)"
 )
+# GitHub Markdown renders dollar-delimited math. Backslash-bracket/parenthesis
+# LaTeX delimiters are displayed literally in the repository renderer.
+UNSUPPORTED_MATH_DELIMITER = re.compile(r"\\(?:\[|\]|\(|\))")
 BROKEN_LATEX_SEQUENCE = re.compile(
     r"(?<!\\)\\bleft\\(?:rightarrow|leftrightarrow)"
 )
@@ -70,6 +73,13 @@ def check_file(path: Path) -> list[str]:
 
         if in_code_fence:
             continue
+
+        unsupported = UNSUPPORTED_MATH_DELIMITER.search(line)
+        if unsupported:
+            errors.append(
+                f"{path}:{line_number}: unsupported Markdown math delimiter "
+                f"'{unsupported.group()}'; use $...$ or $ on its own lines"
+            )
 
         if "$$$" in line:
             errors.append(
