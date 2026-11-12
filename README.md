@@ -1,5 +1,7 @@
 # Hybrid Autonomous Driving Planning & Control Portfolio
 
+> **Documentation:** [Index](docs/README.md) · [Figure galleries](outputs/planning_benchmark/README.md) · [Planning benchmark](docs/reports/planning_benchmark.md) · [Planning & Control benchmark](docs/reports/planning_control_benchmark.md) · [Roadmap](docs/roadmap.md)
+
 A modular autonomous-driving portfolio focused on **path planning, optimization, vehicle constraints, MPC integration, and reproducible evaluation**.
 
 > The repository name retains the original VLM direction, but the current completed scope is classical **Planning & Control**. A VLM behavior layer remains an optional future extension and is not part of the current benchmark.
@@ -30,7 +32,7 @@ Optimization also has the lower RMS curvature-rate average, while Sampling retai
 
 > **Planning conclusion:** the current Optimization Planner is stronger on coverage, canonical objective, and computation time; Sampling remains competitive in geometric smoothness on several scenarios.
 
-![Planning-only summary](outputs/final_evaluation/figures/planning_only_summary.svg)
+![Planning-only summary](outputs/planning_benchmark/figures/planning_only_summary.svg)
 
 ### Planning + Control benchmark
 
@@ -50,11 +52,11 @@ For the 8 scenarios solved by both planners:
 
 > **Planning–Control conclusion:** Optimization is the stronger planner overall in the current frozen suite, but Sampling can produce paths that are easier for the current controller to track.
 
-![Closed-loop control summary](outputs/final_planning_control/figures/closed_loop_control_summary.svg)
+![Closed-loop control summary](outputs/planning_control_benchmark/figures/closed_loop_control_summary.svg)
 
 The difference is intentional to expose an important engineering point: **a lower planning-domain objective does not automatically imply lower steering demand or easier closed-loop tracking**.
 
-Detailed interpretation: [`docs/final_planning_control_findings.md`](docs/final_planning_control_findings.md).
+Detailed interpretation: [`docs/reports/planning_control_benchmark.md`](docs/reports/planning_control_benchmark.md).
 
 ---
 
@@ -306,7 +308,7 @@ evaluation_obstacle_longitudinal_19.00
 | Minimum clearance | **0.5991 m** | 0.50085 m |
 | Canonical objective | 0.4522 | **0.1711** |
 
-![19 m close-obstacle comparison](outputs/final_evaluation/figures/evaluation_obstacle_longitudinal_19_00.png)
+![19 m close-obstacle comparison](outputs/planning_benchmark/figures/evaluation_obstacle_longitudinal_19_00.png)
 
 ### Narrow road
 
@@ -319,7 +321,7 @@ evaluation_road_half_width_1.85
 
 The frozen Sampling candidate set is intentionally not retuned against this evaluation result.
 
-![1.85 m half-width comparison](outputs/final_evaluation/figures/evaluation_road_half_width_1_85.png)
+![1.85 m half-width comparison](outputs/planning_benchmark/figures/evaluation_road_half_width_1_85.png)
 
 ---
 
@@ -346,7 +348,7 @@ Current Optimization development regression:
 Planner-only results:
 
 ```text
-outputs/final_evaluation/
+outputs/planning_benchmark/
 ├── figures/
 ├── final_planner_evaluation.csv
 └── final_planner_evaluation_summary.json
@@ -355,7 +357,7 @@ outputs/final_evaluation/
 Planning + Control results:
 
 ```text
-outputs/final_planning_control/
+outputs/planning_control_benchmark/
 ```
 
 Planner scripts are grouped by purpose:

@@ -1,5 +1,11 @@
 # Sampling vs Optimization Planner — Final Benchmark
 
+## How to use this report
+
+This report covers **Planning-only** formulations, feasibility, canonical path cost, geometry and runtime. For Safe Speed, Tracking Error, Steering Rate and closed-loop performance, use the separate [Planning & Control report](planning_control_benchmark.md). The 108-candidate Sampling experiment is a [separate DEVELOPMENT study](../development/sampling_trackability_study.md), not part of the frozen 45-candidate benchmark.
+
+[Raw Planning CSV](../../outputs/planning_benchmark/final_planner_evaluation.csv) · [JSON summary](../../outputs/planning_benchmark/final_planner_evaluation_summary.json) · [evaluation code](../../scripts/planning/evaluation/run_final_planner_evaluation.py)
+
 ## 1. Objective
 
 This benchmark compares two Frenet lateral path-planning approaches under the same fixed behavior intent:
@@ -24,21 +30,21 @@ The redesign was triggered by Planning–Control consistency, not by a desire to
 
 While preparing planned paths for downstream MPC tracking, the common planner acceptance limit was found to be inconsistent with the vehicle steering model. The earlier benchmark used a permissive curvature limit of approximately:
 
-\[
+$$
 \kappa_{\max}=1.0\;\mathrm{m}^{-1}
-\]
+$$
 
 For the configured vehicle:
 
-- wheelbase: \(L=2.7\,\mathrm{m}\)
-- maximum steering angle: \(\delta_{\max}=0.5\,\mathrm{rad}\)
+- wheelbase: $L=2.7\,\mathrm{m}$
+- maximum steering angle: $\delta_{\max}=0.5\,\mathrm{rad}$
 
 The bicycle-model steering geometry gives:
 
-\[
+$$
 \kappa_{\max}=\frac{\tan\delta_{\max}}{L}
 \approx 0.202334\;\mathrm{m}^{-1}
-\]
+$$
 
 Once the benchmark and planner acceptance logic were aligned to this vehicle-derived limit, the original Optimization formulation exposed structural weaknesses in difficult close-obstacle cases.
 
@@ -114,27 +120,27 @@ The main Sampling limitation is structural:
 
 The redesigned Optimization Planner uses the explicit Frenet state:
 
-\[
+$$
 x=[l_0,\dots,l_{N-1},\;l'_0,\dots,l'_{N-1},\;l''_0,\dots,l''_{N-1}]^T
-\]
+$$
 
 with piecewise-constant jerk:
 
-\[
+$$
 j_i=\frac{l''_{i+1}-l''_i}{\Delta s}
-\]
+$$
 
 and linear spatial dynamics:
 
-\[
+$$
 l'_{i+1}=l'_i+\frac{\Delta s}{2}(l''_i+l''_{i+1})
-\]
+$$
 
-\[
+$$
 l_{i+1}=l_i+\Delta s\,l'_i
 +\frac{\Delta s^2}{3}l''_i
 +\frac{\Delta s^2}{6}l''_{i+1}
-\]
+$$
 
 The explicit state removes the need to reconstruct all derivative states indirectly from an `l`-only vector and allows the initial Frenet state to be constrained directly.
 
@@ -164,25 +170,25 @@ Exact vehicle-footprint clearance depends nonlinearly on position and heading, s
 
 The planner evaluates exact sampled-pose clearance as a function of the local Frenet state:
 
-\[
+$$
 c(l,l')
-\]
+$$
 
 Numerical gradients are estimated around the current path:
 
-\[
+$$
 g_l\approx\frac{c(l+\epsilon,l')-c(l-\epsilon,l')}{2\epsilon}
-\]
+$$
 
-\[
+$$
 g_{l'}\approx\frac{c(l,l'+\epsilon)-c(l,l'-\epsilon)}{2\epsilon}
-\]
+$$
 
 The local clearance constraint is then linearized:
 
-\[
+$$
 c_0+g_l(l-l_0)+g_{l'}(l'-l'_0)\ge c_{\mathrm{target}}
-\]
+$$
 
 A trust region limits each update so the linear approximation remains local. The resulting QP is solved again, reconstructed in Cartesian space, and checked with the exact sampled-pose footprint geometry.
 
@@ -212,9 +218,9 @@ The returned Cartesian path is checked against the vehicle-derived maximum curva
 
 At every returned sampled pose, the rotated vehicle rectangle is checked against the circular obstacle geometry. The required clearance is strict:
 
-\[
+$$
 c > 0.5\,\mathrm{m}
-\]
+$$
 
 This is exact for the implemented rectangle-circle geometry **at returned poses**. It is not a continuous inter-knot collision guarantee.
 
@@ -222,10 +228,10 @@ This is exact for the implemented rectangle-circle geometry **at returned poses*
 
 The production road-boundary validator currently uses a shared Frenet lateral-width contract:
 
-\[
+$$
 l-\frac{w}{2}\ge l_{\min},\qquad
 l+\frac{w}{2}\le l_{\max}
-\]
+$$
 
 It does not enforce exact rotated-corner containment of the full vehicle footprint.
 
@@ -339,9 +345,9 @@ Sampling can produce a physically acceptable path with approximately:
 
 Since:
 
-\[
+$$
 0.1522 < 0.202334
-\]
+$$
 
 this is strong evidence that the scenario itself is not inherently incompatible with the vehicle curvature limit.
 
@@ -355,7 +361,7 @@ The redesigned Optimization Planner produces approximately:
 
 So the redesigned planner solves the same close-obstacle maneuver while respecting the vehicle-derived curvature acceptance limit.
 
-![Early-obstacle comparison](../outputs/final_evaluation/figures/evaluation_obstacle_longitudinal_19_00.png)
+![Early-obstacle comparison](../../outputs/planning_benchmark/figures/evaluation_obstacle_longitudinal_19_00.png)
 
 The engineering lesson is more important than the numerical score:
 
@@ -442,7 +448,7 @@ Both planners successfully solve:
 - `evaluation_curved_nominal`
 - `evaluation_curved_obstacle`
 
-![Curved obstacle comparison](../outputs/final_evaluation/figures/evaluation_curved_obstacle.png)
+![Curved obstacle comparison](../../outputs/planning_benchmark/figures/evaluation_curved_obstacle.png)
 
 These scenarios verify that the benchmark is not limited to a straight reference-line geometry.
 
@@ -536,21 +542,11 @@ The benchmark results support several engineering interpretations beyond the raw
 
 **Improvement direction:** Add inter-knot or swept-volume collision checking, or adaptively increase spatial resolution when clearance approaches the configured threshold.
 
-### 15.6 Open-loop planner feasibility versus closed-loop trackability
+### 15.6 Planning feasibility versus completed closed-loop evaluation
 
-**Observation:** The current planner benchmark evaluates geometric feasibility and path quality, while the redesigned paths have not yet been compared through the same curvature-aware closed-loop controller.
+**Completed follow-up:** Both planners now feed the same curvature-aware MPC. Every valid planned path completed tracking at its own constant Safe Speed: Sampling **8/8** and Optimization **9/9** after planning success. Same-speed comparisons reveal that lower Frenet Planning Cost does not always imply lower tracking error or feedback effort.
 
-**Interpretation:** The original redesign was triggered precisely because open-loop planner acceptance did not guarantee consistency with downstream vehicle capability. The logical final test is therefore not another open-loop planner metric but a common Planning–Control closed-loop evaluation.
-
-**Improvement direction:** Feed both Sampling and Optimization paths into the same curvature-aware MPC and compare tracking error, steering-angle/rate utilization, controller saturation, path deviation, runtime, and failure cases.
-
-### Priority
-
-The highest-priority improvement is the Planning–Control closed-loop experiment. It directly answers the engineering question that motivated the redesign:
-
-> Does a path accepted by Planning remain practically trackable under the same vehicle assumptions used by Control?
-
-The other improvements should remain explicitly versioned future work rather than being silently applied to the current frozen benchmark. Changes to candidate density, clearance margin, road geometry, collision checking, or sequential-refinement logic would require a new development/tuning cycle and a clearly defined evaluation protocol.
+See [Planning & Control benchmark](planning_control_benchmark.md) for metrics and interpretation. Future work includes planning constraints or costs directly reflecting design-speed steering-rate demands, robust clearance margins, precise rotated-corner road checks, and between-knot collision checks. Any changes require new DEVELOPMENT tests and a separate evaluation cycle.
 
 ---
 
@@ -590,23 +586,23 @@ Development-only redesign regression:
 
 Raw final metrics:
 
-`outputs/final_evaluation/final_planner_evaluation.csv`
+`outputs/planning_benchmark/final_planner_evaluation.csv`
 
 Machine-readable final summary:
 
-`outputs/final_evaluation/final_planner_evaluation_summary.json`
+`outputs/planning_benchmark/final_planner_evaluation_summary.json`
 
 Evaluation source provenance:
 
-`outputs/final_evaluation/source_provenance.json`
+`outputs/planning_benchmark/source_provenance.json`
 
 Scenario figures:
 
-`outputs/final_evaluation/figures/`
+`outputs/planning_benchmark/figures/`
 
 Archived pre-rerun figures:
 
-`outputs/final_evaluation/previous_figures_2e0bc59/`
+`outputs/planning_benchmark/previous_figures_2e0bc59/`
 
 Evaluation scenario definitions:
 

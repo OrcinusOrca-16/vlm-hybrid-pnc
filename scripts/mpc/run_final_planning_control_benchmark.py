@@ -36,7 +36,7 @@ from src.control.path_tracking import compute_constant_safe_speed, compute_path_
 from src.vehicle.kinematic_bicycle import update_vehicle_state
 
 
-OUTPUT_DIR = Path("outputs/final_planning_control")
+OUTPUT_DIR = Path("outputs/planning_control_benchmark")
 CSV_PATH = OUTPUT_DIR / "final_planning_control_benchmark.csv"
 SUMMARY_JSON_PATH = OUTPUT_DIR / "final_planning_control_benchmark_summary.json"
 

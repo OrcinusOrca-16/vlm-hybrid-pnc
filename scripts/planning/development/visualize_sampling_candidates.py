@@ -14,7 +14,7 @@ from src.planning.sampling_planner import (
 )
 from src.planning.soft_cost import select_best_candidate
 
-RESULTS_DIR = Path("results")
+RESULTS_DIR = Path("outputs/development/sampling")
 
 LATERAL_WEIGHT = 1.0
 CURVATURE_WEIGHT = 10.0

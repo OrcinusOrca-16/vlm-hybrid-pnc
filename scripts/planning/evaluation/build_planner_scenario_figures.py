@@ -21,7 +21,7 @@ from src.benchmark.evaluation_scenario_suite import build_final_evaluation_scena
 from src.benchmark.scenario_runner import run_benchmark_scenario
 from src.planning.frenet import sl_to_xy, vehicle_state_to_frenet
 
-FIGURE_DIR = Path("outputs/final_evaluation/figures")
+FIGURE_DIR = Path("outputs/planning_benchmark/figures")
 REFERENCE_PLOT_RESOLUTION_M = 0.25
 
 

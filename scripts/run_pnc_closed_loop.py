@@ -25,7 +25,7 @@ WHEELBASE_M = 2.7
 MAX_ACCELERATION = 2.0
 MAX_DECELERATION = 3.0
 
-RESULTS_DIR = Path("results")
+RESULTS_DIR = Path("outputs/development/baseline")
 
 # Options:
 #   "normal"

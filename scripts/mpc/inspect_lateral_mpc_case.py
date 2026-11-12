@@ -1,5 +1,7 @@
 """Inspect one lateral MPC closed-loop case in detail."""
 
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 
 from src.common.types import VehicleState, ControlCommand
@@ -136,13 +138,14 @@ def main() -> None:
     plt.legend()
 
     plt.tight_layout(rect=[0.0, 0.0, 1.0, 0.94])
+    Path("outputs/development/control").mkdir(parents=True, exist_ok=True)
     plt.savefig(
-        "results/mpc_combined_5ms_inspection.png",
+        "outputs/development/control/mpc_combined_5ms_inspection.png",
         dpi=150,
     )
     print(
         "Saved plot to "
-        "results/mpc_combined_5ms_inspection.png"
+        "outputs/development/control/mpc_combined_5ms_inspection.png"
     )
 
 if __name__ == "__main__":

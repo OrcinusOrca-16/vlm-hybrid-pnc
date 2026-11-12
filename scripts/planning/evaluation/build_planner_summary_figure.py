@@ -18,8 +18,8 @@ import numpy as np
 
 from scripts.plotting_style import OPTIMIZATION_COLOR, SAMPLING_COLOR
 
-INPUT_CSV = Path("outputs/final_evaluation/final_planner_evaluation.csv")
-OUTPUT_PATH = Path("outputs/final_evaluation/figures/planning_only_summary.svg")
+INPUT_CSV = Path("outputs/planning_benchmark/final_planner_evaluation.csv")
+OUTPUT_PATH = Path("outputs/planning_benchmark/figures/planning_only_summary.svg")
 
 
 def as_bool(value: str) -> bool:

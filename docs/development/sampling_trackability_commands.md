@@ -1,7 +1,14 @@
+# Historical Sampling Trackability Commands
+
+This is a PowerShell **historical command record** from 2026-11-01, not a one-click current reproduction script. Baseline and tuned commands were run against differing code states; verify each command and historical module path before using it. Original base commit: `159d72baccf124e85f5642cdff0ca52fd1201d25`.
+
+See [development study](sampling_trackability_study.md) and [configuration snapshot](sampling_trackability_config.json).
+
+```powershell
 # Historical execution record, not a one-click replay script.
 # Baseline adapter/runtime commands ran before production edits.
 # For historical production baseline, use starting commit 159d72baccf124e85f5642cdff0ca52fd1201d25.
-# 在仓库根目录执行；使用仓库 .venv。
+# Run from repository root using its .venv.
 .\.venv\Scripts\python.exe -m scripts.planning.validation.validate_reference_line
 .\.venv\Scripts\python.exe -m scripts.planning.validation.validate_frenet
 .\.venv\Scripts\python.exe -m scripts.planning.development.run_sampling_trackability_tuning > outputs\sampling_trackability_initial.log
@@ -39,3 +46,4 @@ git rev-parse HEAD
 git status --short
 git diff --check
 git diff --stat
+```
